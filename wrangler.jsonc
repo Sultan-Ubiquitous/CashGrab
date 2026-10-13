@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "quick-money",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "observability": { "enabled": true },
+  // Configuration is provided as secrets (`wrangler secret put NAME`):
+  //   DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL,
+  //   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+  // During local development they are read from .env.
+  //
+  // Large exports and password hashing need more CPU than the Workers Free
+  // plan allows. On a paid plan you may raise the limit, e.g.:
+  //   "limits": { "cpu_ms": 60000 }
+}
