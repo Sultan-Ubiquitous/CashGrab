@@ -7,24 +7,27 @@ import { RequireAuth } from '~/components/RequireAuth'
 import { Badge, Button, Card, Field, Input, Select } from '~/components/ui'
 import { api, qs } from '~/lib/api'
 import { dateIst, money, qty } from '~/lib/format'
-import type { CustomerDto, DriverDto, TripRowDto, TruckDto, PageDto, TripTotalsDto } from '~/shared/schemas'
+import { useMasterOptions } from '~/lib/masterOptions'
+import type { PageDto, TripRowDto, TripTotalsDto } from '~/shared/schemas'
 
-const searchSchema = z
-  .object({
-    from: z.string().optional(),
-    to: z.string().optional(),
-    customerId: z.string().optional(),
-    truckId: z.string().optional(),
-    driverId: z.string().optional(),
-    paymentDue: z.string().optional(),
-    sourceOwnership: z.string().optional(),
-    marginOverridden: z.string().optional(),
-    q: z.string().optional(),
-  })
-  .partial()
+const searchSchema = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+  customerId: z.string().optional(),
+  truckId: z.string().optional(),
+  driverId: z.string().optional(),
+  paymentDue: z.string().optional(),
+  sourceOwnership: z.string().optional(),
+  marginOverridden: z.string().optional(),
+  q: z.string().optional(),
+})
 
 export const Route = createFileRoute('/trips/')({
-  validateSearch: (s) => searchSchema.parse(s),
+  // Malformed deep links fall back to no filters instead of throwing.
+  validateSearch: (s) => {
+    const parsed = searchSchema.safeParse(s)
+    return parsed.success ? parsed.data : {}
+  },
   component: () => (
     <RequireAuth>
       <TripsPage />
@@ -47,12 +50,14 @@ function TripsPage() {
     marginOverridden: search.marginOverridden ?? '',
   })
 
+  // Deep-link filters seed the local list state once, then leave the URL clean.
+  const deepLinked = React.useRef(false)
   React.useEffect(() => {
+    if (deepLinked.current) return
+    deepLinked.current = true
     if (Object.keys(search).length === 0) return
-    navigate({ to: '/trips', search: {}, replace: true })
-    // deep-link filters only on first mount
-    // biome-ignore lint/correctness/useExhaustiveDependencies: see above
-  }, [])
+    void navigate({ to: '/trips', search: {}, replace: true })
+  }, [search, navigate])
 
   const query = { ...state, sort: state.sort, order: state.order, page: state.page, pageSize: state.pageSize }
   const { data, isLoading, error } = useQuery({
@@ -74,18 +79,7 @@ function TripsPage() {
     queryKey: ['tripsTotals', filterParams],
     queryFn: () => api<TripTotalsDto>('GET', `/reports/trips/totals${qs(filterParams)}`),
   })
-  const { data: customers } = useQuery({
-    queryKey: ['customers', 'options'],
-    queryFn: () => api<PageDto<CustomerDto>>('GET', '/customers?page=1&pageSize=100&sort=name&order=asc'),
-  })
-  const { data: trucks } = useQuery({
-    queryKey: ['trucks', 'options'],
-    queryFn: () => api<PageDto<TruckDto>>('GET', '/trucks?page=1&pageSize=100&sort=registrationNumber&order=asc'),
-  })
-  const { data: drivers } = useQuery({
-    queryKey: ['drivers', 'options'],
-    queryFn: () => api<PageDto<DriverDto>>('GET', '/drivers?page=1&pageSize=100&sort=name&order=asc'),
-  })
+  const { customers, trucks, drivers } = useMasterOptions()
 
   const columns: Column<TripRowDto>[] = [
     {
@@ -230,7 +224,7 @@ function TripsPage() {
                   className="w-36"
                 >
                   <option value="">All</option>
-                  {customers?.items.map((c) => (
+                  {customers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
@@ -240,7 +234,7 @@ function TripsPage() {
               <Field label="Truck">
                 <Select value={state.truckId} onChange={(e) => patch({ truckId: e.target.value })} className="w-32">
                   <option value="">All</option>
-                  {trucks?.items.map((t) => (
+                  {trucks.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.registrationNumber}
                     </option>
@@ -250,7 +244,7 @@ function TripsPage() {
               <Field label="Driver">
                 <Select value={state.driverId} onChange={(e) => patch({ driverId: e.target.value })} className="w-32">
                   <option value="">All</option>
-                  {drivers?.items.map((d) => (
+                  {drivers.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.name}
                     </option>

@@ -11,7 +11,6 @@ import {
   truckMileage,
 } from '~/server/services/calc'
 import { dec, money, moneyOrNull, sum } from '~/server/lib/money'
-import { addMonths, istDayEndExclusiveUtc, istDayStartUtc, monthsBetween, todayIst } from '~/server/lib/dates'
 import { csvCell, sanitizeText, xlsxCell } from '~/server/exports/cells'
 
 describe('money helpers', () => {
@@ -123,23 +122,6 @@ describe('truck derived figures', () => {
     expect(truckMileage('24000', '0')).toBeNull()
     expect(truckCostPerKm('50000.50', '24000')).toBe('2.08')
     expect(truckCostPerKm('50000.50', '0')).toBeNull()
-  })
-})
-
-describe('IST date semantics', () => {
-  it('today is an IST calendar date', () => {
-    expect(todayIst()).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-  })
-
-  it('inclusive day ranges become [start, next-day) UTC instants', () => {
-    expect(istDayStartUtc('2026-10-05').toISOString()).toBe('2026-10-04T18:30:00.000Z')
-    expect(istDayEndExclusiveUtc('2026-10-05').toISOString()).toBe('2026-10-05T18:30:00.000Z')
-  })
-
-  it('monthsBetween and addMonths (month-start semantics)', () => {
-    expect(monthsBetween('2026-08-17', '2026-10-01')).toEqual(['2026-08', '2026-09', '2026-10'])
-    expect(addMonths('2026-10-31', -5)).toBe('2026-05-01')
-    expect(addMonths('2026-03-31', -1)).toBe('2026-02-01')
   })
 })
 

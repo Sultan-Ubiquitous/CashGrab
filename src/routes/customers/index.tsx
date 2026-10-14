@@ -3,9 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { DataTable, useListState, type Column } from '~/components/DataTable'
 import { RequireAuth } from '~/components/RequireAuth'
-import { Button, Card, Field, Input, Modal } from '~/components/ui'
+import { Button, Card, ErrorNote, Field, Input, Modal } from '~/components/ui'
 import { api, errMessage, qs } from '~/lib/api'
 import { dateTimeIst } from '~/lib/format'
+import { useEntitySave } from '~/lib/useEntitySave'
 import type { CustomerDto, PageDto } from '~/shared/schemas'
 
 export const Route = createFileRoute('/customers/')({
@@ -113,29 +114,17 @@ function CustomersPage() {
 }
 
 function CustomerModal({ customer, onClose }: { customer: CustomerDto | null; onClose: () => void }) {
-  const qc = useQueryClient()
   const [form, setForm] = React.useState({
     name: customer?.name ?? '',
     phone: customer?.phone ?? '',
     location: customer?.location ?? '',
   })
-  const [error, setError] = React.useState('')
-  const save = useMutation({
-    mutationFn: () =>
-      api('POST', '/customers', { ...form, phone: form.phone || null }) as unknown as Promise<CustomerDto>,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['customers'] })
-      onClose()
-    },
-    onError: (e) => setError(errMessage(e)),
-  })
-  const update = useMutation({
-    mutationFn: () => api<CustomerDto>('PATCH', `/customers/${customer!.id}`, { ...form, phone: form.phone || null }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['customers'] })
-      onClose()
-    },
-    onError: (e) => setError(errMessage(e)),
+  const { error, pending, submit } = useEntitySave({
+    create: (f: typeof form) => api('POST', '/customers', { ...f, phone: f.phone || null }),
+    update: (f: typeof form) =>
+      api<CustomerDto>('PATCH', `/customers/${customer!.id}`, { ...f, phone: f.phone || null }),
+    invalidate: [['customers']],
+    onClose,
   })
   return (
     <Modal open title={customer ? 'Edit customer' : 'Add customer'} onClose={onClose}>
@@ -143,18 +132,10 @@ function CustomerModal({ customer, onClose }: { customer: CustomerDto | null; on
         className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault()
-          if (customer) {
-            update.mutate()
-          } else {
-            save.mutate()
-          }
+          submit(customer ? 'update' : 'create', form)
         }}
       >
-        {error ? (
-          <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-            {error}
-          </div>
-        ) : null}
+        {error ? <ErrorNote error={error} /> : null}
         <Field label="Name">
           <Input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         </Field>
@@ -176,7 +157,7 @@ function CustomerModal({ customer, onClose }: { customer: CustomerDto | null; on
           <Button type="button" variant="subtle" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={save.isPending || update.isPending}>
+          <Button type="submit" disabled={pending}>
             {customer ? 'Save' : 'Create'}
           </Button>
         </div>

@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
-import { Badge, Button, Card, Field, Input, Modal, Stat, TextArea } from '~/components/ui'
+import { Badge, Button, Card, ErrorNote, Field, Input, Modal, Stat, TextArea } from '~/components/ui'
 import { RequireAuth } from '~/components/RequireAuth'
 import { TripForm } from '~/components/TripForm'
 import { api, errMessage } from '~/lib/api'
@@ -243,9 +243,11 @@ function MarginOverrideCard({
   const qc = useQueryClient()
   const [value, setValue] = React.useState(override ?? '')
   const [error, setError] = React.useState('')
+  // The override travels as a mutation variable — mutating right after a
+  // setState would otherwise capture the stale closure value.
   const save = useMutation({
-    mutationFn: () =>
-      api<TripDetailDto>('PUT', `/trips/${tripId}/margin-override`, { netMarginOverride: value === '' ? null : value }),
+    mutationFn: (next: string | null) =>
+      api<TripDetailDto>('PUT', `/trips/${tripId}/margin-override`, { netMarginOverride: next }),
     onSuccess: () => {
       setError('')
       qc.invalidateQueries({ queryKey: ['trip', tripId] })
@@ -266,14 +268,14 @@ function MarginOverrideCard({
             className="w-40"
           />
         </Field>
-        <Button onClick={() => save.mutate()} disabled={save.isPending}>
+        <Button onClick={() => save.mutate(value.trim() === '' ? null : value.trim())} disabled={save.isPending}>
           Save hand fix
         </Button>
         <Button
           variant="subtle"
           onClick={() => {
             setValue('')
-            save.mutate()
+            save.mutate(null)
           }}
           disabled={save.isPending || override === null}
         >
@@ -314,11 +316,7 @@ function AddPaymentModal({ tripId, remaining, onClose }: { tripId: string; remai
           save.mutate()
         }}
       >
-        {error ? (
-          <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-            {error}
-          </div>
-        ) : null}
+        {error ? <ErrorNote error={error} /> : null}
         <Field label="Amount (₹)" hint={`Cannot be more than ${money(remaining)}`}>
           <Input
             required

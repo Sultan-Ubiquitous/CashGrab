@@ -3,9 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { DataTable, useListState, type Column } from '~/components/DataTable'
 import { RequireAuth } from '~/components/RequireAuth'
-import { Badge, Button, Card, Field, Input, Modal } from '~/components/ui'
+import { Badge, Button, Card, ErrorNote, Field, Input, Modal } from '~/components/ui'
 import { api, errMessage, qs } from '~/lib/api'
 import { dateTimeIst, money } from '~/lib/format'
+import { useEntitySave } from '~/lib/useEntitySave'
 import type { TruckDto, PageDto } from '~/shared/schemas'
 
 export const Route = createFileRoute('/trucks/')({
@@ -133,29 +134,17 @@ function TrucksPage() {
 }
 
 function TruckModal({ truck, onClose }: { truck: TruckDto | null; onClose: () => void }) {
-  const qc = useQueryClient()
   const [form, setForm] = React.useState({
     registrationNumber: truck?.registrationNumber ?? '',
     dieselCost: truck?.dieselCost ?? '0',
     dieselLiters: truck?.dieselLiters ?? '0',
     distanceTraveled: truck?.distanceTraveled ?? '0',
   })
-  const [error, setError] = React.useState('')
-  const save = useMutation({
-    mutationFn: () => api('POST', '/trucks', form) as unknown as Promise<TruckDto>,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['trucks'] })
-      onClose()
-    },
-    onError: (e) => setError(errMessage(e)),
-  })
-  const update = useMutation({
-    mutationFn: () => api<TruckDto>('PATCH', `/trucks/${truck!.id}`, form),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['trucks'] })
-      onClose()
-    },
-    onError: (e) => setError(errMessage(e)),
+  const { error, pending, submit } = useEntitySave({
+    create: (f: typeof form) => api('POST', '/trucks', f),
+    update: (f: typeof form) => api<TruckDto>('PATCH', `/trucks/${truck!.id}`, f),
+    invalidate: [['trucks']],
+    onClose,
   })
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -166,18 +155,10 @@ function TruckModal({ truck, onClose }: { truck: TruckDto | null; onClose: () =>
         className="grid grid-cols-2 gap-3"
         onSubmit={(e) => {
           e.preventDefault()
-          if (truck) {
-            update.mutate()
-          } else {
-            save.mutate()
-          }
+          submit(truck ? 'update' : 'create', form)
         }}
       >
-        {error ? (
-          <div className="col-span-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-            {error}
-          </div>
-        ) : null}
+        {error ? <ErrorNote error={error} className="col-span-2" /> : null}
         <div className="col-span-2">
           <Field label="Registration number" hint="Unique per user, e.g. MH 12 AB 1234">
             <Input required value={form.registrationNumber} onChange={set('registrationNumber')} />
@@ -217,7 +198,7 @@ function TruckModal({ truck, onClose }: { truck: TruckDto | null; onClose: () =>
           <Button type="button" variant="subtle" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={save.isPending || update.isPending}>
+          <Button type="submit" disabled={pending}>
             {truck ? 'Save' : 'Create'}
           </Button>
         </div>

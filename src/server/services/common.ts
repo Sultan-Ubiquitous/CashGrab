@@ -1,4 +1,4 @@
-import { istDayEndExclusiveUtc, istDayStartUtc } from '../lib/dates'
+import { istDayEndExclusiveUtc, istDayStartUtc } from '~/shared/dates'
 
 /** Inclusive IST calendar range -> Prisma filter on a timestamptz column. */
 export function createdAtRange(from?: string, to?: string) {

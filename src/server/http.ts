@@ -1,9 +1,10 @@
 import type { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { zValidator } from '@hono/zod-validator'
-import type { z } from 'zod'
+import { z } from 'zod'
 import type { Auth } from './auth'
 import type { Db } from './db'
+import { id } from '~/shared/schemas'
 
 export interface AppVars {
   db: Db
@@ -21,6 +22,9 @@ export const v = <T extends z.ZodType, Target extends 'json' | 'query' | 'param'
   zValidator(target, schema, (result) => {
     if (!result.success) throw result.error
   })
+
+/** Route id parameter, shared by every `:id` route. */
+export const idParam = z.object({ id })
 
 /** Response validation: the payload must satisfy its published contract. */
 export function ok<T extends z.ZodType>(c: Ctx, schema: T, data: z.input<T>, status: ContentfulStatusCode = 200) {

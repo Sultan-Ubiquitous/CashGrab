@@ -1,5 +1,4 @@
 import { Hono } from 'hono'
-import { z } from 'zod'
 import {
   customerInput,
   customerOut,
@@ -16,13 +15,12 @@ import {
   truckOut,
   truckUpdate,
 } from '~/shared/schemas'
-import { ok, v, type AppEnv } from '../http'
+import { idParam, ok, v, type AppEnv } from '../http'
 import * as customers from '../services/customers'
 import * as drivers from '../services/drivers'
 import * as trips from '../services/trips'
 import * as trucks from '../services/trucks'
 
-const idParam = z.object({ id: z.string().min(1).max(64) })
 const tripHistoryQuery = tripListQuery
 
 export const trucksRoutes = new Hono<AppEnv>()

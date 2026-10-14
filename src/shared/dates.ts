@@ -6,6 +6,9 @@
  * - Timestamps (created_at) are stored in UTC (timestamptz) and shown in IST.
  * - Date range filters are inclusive on both ends: from <= date <= to.
  *   For timestamps this becomes [from 00:00 IST, (to + 1 day) 00:00 IST).
+ *
+ * This module is pure (no runtime dependencies), so both the server and the
+ * shared request/response contracts can import it.
  */
 export const BUSINESS_TZ = 'Asia/Kolkata'
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000 // IST has no DST.

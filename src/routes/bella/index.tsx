@@ -1,11 +1,12 @@
 import * as React from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { DataTable, useListState, type Column } from '~/components/DataTable'
 import { RequireAuth } from '~/components/RequireAuth'
-import { Badge, Button, Card, Field, Input, Modal, Select } from '~/components/ui'
-import { api, errMessage, qs } from '~/lib/api'
+import { Badge, Button, Card, ErrorNote, Field, Input, Modal, Select } from '~/components/ui'
+import { api, qs } from '~/lib/api'
 import { dateIst, money, qty } from '~/lib/format'
+import { useEntitySave } from '~/lib/useEntitySave'
 import type { BellaDto, PageDto } from '~/shared/schemas'
 
 export const Route = createFileRoute('/bella/')({
@@ -120,16 +121,11 @@ function BellaPage() {
 }
 
 function BellaModal({ bella, onClose }: { bella: BellaDto; onClose: () => void }) {
-  const qc = useQueryClient()
   const [form, setForm] = React.useState({ source: bella.source, sourceOwnership: bella.sourceOwnership })
-  const [error, setError] = React.useState('')
-  const update = useMutation({
-    mutationFn: () => api<BellaDto>('PATCH', `/bella/${bella.id}`, form),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['bella'] })
-      onClose()
-    },
-    onError: (e) => setError(errMessage(e)),
+  const { error, pending, update } = useEntitySave({
+    update: (f: typeof form) => api<BellaDto>('PATCH', `/bella/${bella.id}`, f),
+    invalidate: [['bella']],
+    onClose,
   })
   return (
     <Modal open title="Edit bella source" onClose={onClose}>
@@ -137,14 +133,10 @@ function BellaModal({ bella, onClose }: { bella: BellaDto; onClose: () => void }
         className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault()
-          update.mutate()
+          update(form)
         }}
       >
-        {error ? (
-          <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-            {error}
-          </div>
-        ) : null}
+        {error ? <ErrorNote error={error} /> : null}
         <p className="text-xs text-gray-500">
           Quantity and prices live on the trip and stay locked here. Source details never affect the net margin.
         </p>
@@ -164,7 +156,7 @@ function BellaModal({ bella, onClose }: { bella: BellaDto; onClose: () => void }
           <Button type="button" variant="subtle" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={update.isPending}>
+          <Button type="submit" disabled={pending}>
             Save
           </Button>
         </div>

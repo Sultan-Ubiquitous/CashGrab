@@ -6,7 +6,7 @@
 import { Prisma } from '~/generated/prisma/client'
 import type { TripFilters, TripRowDto, TripTotalsDto } from '~/shared/schemas'
 import type { DbOrTx } from '../db'
-import { dbDateToIso } from '../lib/dates'
+import { dbDateToIso } from '~/shared/dates'
 import { money, moneyOrNull } from '../lib/money'
 
 const sql = Prisma.sql

@@ -1,5 +1,5 @@
 const BASE = process.env.SMOKE_BASE ?? 'http://localhost:3000'
-const ORIGIN = 'http://localhost:3000'
+const ORIGIN = BASE
 
 function client() {
   let cookie = ''
@@ -291,9 +291,16 @@ eq(modCsv.headers.get('content-type'), 'text/csv; charset=utf-8', 'csv mime')
 assert(modCsv.text.includes(reg), 'truck export contains registration')
 assert(modCsv.text.includes('id,registration_number'), 'truck export headers')
 
-// B's exports must not contain A's data
+// B's exports must not contain A's data. ZIP bodies are deflate-compressed, so
+// searching the raw bytes for plaintext proves nothing — unzip first, and keep
+// a positive control so the negative check cannot pass vacuously.
 const bExport = await B('GET', '/api/exports/full?format=csv', undefined, 200)
-assert(!bExport.text.includes(reg), 'isolation in exports')
+const aFiles = unzipSync(new Uint8Array(fullZip.buf))
+const bFiles = unzipSync(new Uint8Array(bExport.buf))
+const aTrucksCsv = Buffer.from(aFiles['trucks.csv']).toString('utf8')
+const bTrucksCsv = Buffer.from(bFiles['trucks.csv']).toString('utf8')
+assert(aTrucksCsv.includes(reg), 'control: A export contains A registration')
+assert(!bTrucksCsv.includes(reg), 'isolation in exports')
 
 // --- delete in use / cascade
 await A('DELETE', `/api/trucks/${truck.id}`, undefined, 409)

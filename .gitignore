@@ -4,6 +4,7 @@ node_modules
 .env
 dist
 .wrangler
+.tanstack
 
 src/generated
 .dev.vars

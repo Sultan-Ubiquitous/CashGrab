@@ -1,13 +1,14 @@
 /// <reference types="vite/client" />
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
+import { QueryClientProvider } from '@tanstack/react-query'
 import * as React from 'react'
 import { AppShell } from '~/components/AppShell'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
+import type { RouterContext } from '~/router'
 import appCss from '~/styles/app.css?url'
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -25,11 +26,8 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 15_000, retry: 0, refetchOnWindowFocus: false } },
-})
-
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const { queryClient } = Route.useRouteContext()
   return (
     <html>
       <head>

@@ -170,10 +170,28 @@ export function Modal({
   )
 }
 
-export function ErrorNote({ error }: { error: unknown }) {
+export function ErrorNote({ error, className }: { error: unknown; className?: string }) {
   return (
-    <div className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+    <div
+      className={cx(
+        'rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs text-red-700 dark:text-red-300',
+        className,
+      )}
+    >
       {String((error as Error)?.message ?? error)}
+    </div>
+  )
+}
+
+export function SuccessNote({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={cx(
+        'rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+        className,
+      )}
+    >
+      {children}
     </div>
   )
 }

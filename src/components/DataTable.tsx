@@ -1,4 +1,5 @@
 import * as React from 'react'
+import type { PageDto } from '~/shared/schemas'
 import { Button, EmptyRow, ErrorNote, Spinner, cx } from './ui'
 
 export interface Column<T> {
@@ -7,14 +8,6 @@ export interface Column<T> {
   sortable?: boolean
   align?: 'left' | 'right' | 'center'
   render?: (row: T) => React.ReactNode
-}
-
-export interface PageDto<T> {
-  items: T[]
-  page: number
-  pageSize: number
-  total: number
-  totalPages: number
 }
 
 export interface ListState {

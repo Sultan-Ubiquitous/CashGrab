@@ -3,9 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { DataTable, useListState, type Column } from '~/components/DataTable'
 import { RequireAuth } from '~/components/RequireAuth'
-import { Button, Card, Field, Input, Modal } from '~/components/ui'
+import { Button, Card, ErrorNote, Field, Input, Modal } from '~/components/ui'
 import { api, errMessage, qs } from '~/lib/api'
 import { dateTimeIst } from '~/lib/format'
+import { useEntitySave } from '~/lib/useEntitySave'
 import type { DriverDto, PageDto } from '~/shared/schemas'
 
 export const Route = createFileRoute('/drivers/')({
@@ -112,24 +113,12 @@ function DriversPage() {
 }
 
 function DriverModal({ driver, onClose }: { driver: DriverDto | null; onClose: () => void }) {
-  const qc = useQueryClient()
   const [form, setForm] = React.useState({ name: driver?.name ?? '', phone: driver?.phone ?? '' })
-  const [error, setError] = React.useState('')
-  const save = useMutation({
-    mutationFn: () => api('POST', '/drivers', form) as unknown as Promise<DriverDto>,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['drivers'] })
-      onClose()
-    },
-    onError: (e) => setError(errMessage(e)),
-  })
-  const update = useMutation({
-    mutationFn: () => api<DriverDto>('PATCH', `/drivers/${driver!.id}`, form),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['drivers'] })
-      onClose()
-    },
-    onError: (e) => setError(errMessage(e)),
+  const { error, pending, submit } = useEntitySave({
+    create: (f: typeof form) => api('POST', '/drivers', f),
+    update: (f: typeof form) => api<DriverDto>('PATCH', `/drivers/${driver!.id}`, f),
+    invalidate: [['drivers']],
+    onClose,
   })
   return (
     <Modal open title={driver ? 'Edit driver' : 'Add driver'} onClose={onClose}>
@@ -137,18 +126,10 @@ function DriverModal({ driver, onClose }: { driver: DriverDto | null; onClose: (
         className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault()
-          if (driver) {
-            update.mutate()
-          } else {
-            save.mutate()
-          }
+          submit(driver ? 'update' : 'create', form)
         }}
       >
-        {error ? (
-          <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-            {error}
-          </div>
-        ) : null}
+        {error ? <ErrorNote error={error} /> : null}
         <Field label="Name">
           <Input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         </Field>
@@ -164,7 +145,7 @@ function DriverModal({ driver, onClose }: { driver: DriverDto | null; onClose: (
           <Button type="button" variant="subtle" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={save.isPending || update.isPending}>
+          <Button type="submit" disabled={pending}>
             {driver ? 'Save' : 'Create'}
           </Button>
         </div>

@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { RequireAuth } from '~/components/RequireAuth'
-import { Button, Card, Field, Input } from '~/components/ui'
+import { Button, Card, ErrorNote, Field, Input, SuccessNote } from '~/components/ui'
 import { api, errMessage } from '~/lib/api'
 import type { MeDto } from '~/shared/schemas'
 
@@ -20,11 +20,20 @@ function ProfilePage() {
   const [form, setForm] = React.useState({ name: '', username: '', phone: '' })
   const [error, setError] = React.useState('')
   const [saved, setSaved] = React.useState(false)
+  const savedTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   React.useEffect(() => {
     if (!user) return
     setForm({ name: user.name ?? '', username: user.username ?? '', phone: user.phone ?? '' })
   }, [user])
+
+  // No setState on an unmounted component.
+  React.useEffect(
+    () => () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current)
+    },
+    [],
+  )
 
   const save = useMutation({
     mutationFn: () =>
@@ -39,7 +48,8 @@ function ProfilePage() {
       setError('')
       void qc.invalidateQueries({ queryKey: ['me'] })
       setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
+      if (savedTimer.current) clearTimeout(savedTimer.current)
+      savedTimer.current = setTimeout(() => setSaved(false), 2500)
     },
     onError: (e) => setError(errMessage(e)),
   })
@@ -58,16 +68,8 @@ function ProfilePage() {
             save.mutate()
           }}
         >
-          {error ? (
-            <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-              {error}
-            </div>
-          ) : null}
-          {saved ? (
-            <div className="rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-              Saved
-            </div>
-          ) : null}
+          {error ? <ErrorNote error={error} /> : null}
+          {saved ? <SuccessNote>Saved</SuccessNote> : null}
           <Field label="Name">
             <Input required value={form.name} onChange={set('name')} />
           </Field>

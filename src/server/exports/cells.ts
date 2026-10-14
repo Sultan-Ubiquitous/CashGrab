@@ -1,4 +1,4 @@
-import { dbDateToIso, formatIstDateTime, istWallClock } from '../lib/dates'
+import { dbDateToIso, formatIstDateTime, istWallClock } from '~/shared/dates'
 
 export type ColumnType = 'text' | 'money' | 'decimal' | 'int' | 'date' | 'datetime' | 'bool'
 export type CellValue = string | number | boolean | Date | null | undefined

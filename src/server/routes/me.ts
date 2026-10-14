@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { isAPIError } from 'better-auth/api'
 import { meOut, phone } from '~/shared/schemas'
 import { AppError } from '../lib/errors'
 import { ok, v, type AppEnv } from '../http'
@@ -37,8 +38,9 @@ export const meRoutes = new Hono<AppEnv>()
     if (!session) throw new AppError('UNAUTHORIZED', 'Sign in required')
 
     // `username` is owned by the Better Auth username plugin, which validates
-    // format, length and uniqueness on /update-user. APIErrors there are
-    // mapped to a uniform 422 below.
+    // format, length and uniqueness on /update-user. APIErrors there carry
+    // user-facing messages and are mapped to a uniform 422 below; anything
+    // else is an internal failure whose message must not reach the client.
     try {
       await c.var.auth.api.updateUser({
         headers,
@@ -52,7 +54,7 @@ export const meRoutes = new Hono<AppEnv>()
       if (e instanceof AppError) {
         throw e
       }
-      const msg = e instanceof Error ? e.message : 'Update failed'
+      const msg = isAPIError(e) ? e.message : 'Update failed'
       throw new AppError('VALIDATION_ERROR', msg, { cause: 'better-auth' })
     }
     const fresh = await c.var.auth.api.getSession({ headers })

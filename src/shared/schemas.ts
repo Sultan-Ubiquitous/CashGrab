@@ -4,14 +4,12 @@
  * ever converted to a binary float.
  */
 import { z } from 'zod'
-import { isValidIsoDate } from '~/server/lib/dates'
+import { isValidIsoDate } from './dates'
+import { MONEY_RE, MEASURE_RE, QUANTITY_MAX, SIGNED_MONEY_RE } from './validators'
 
 // ---------------------------------------------------------------------------
 // Primitives
 // ---------------------------------------------------------------------------
-const MONEY_RE = /^\d{1,12}(\.\d{1,2})?$/
-const SIGNED_MONEY_RE = /^-?\d{1,12}(\.\d{1,2})?$/
-
 export const moneyIn = z.string().trim().regex(MONEY_RE, 'Enter a non-negative amount with at most 2 decimals')
 export const signedMoneyIn = z.string().trim().regex(SIGNED_MONEY_RE, 'Enter an amount with at most 2 decimals')
 // Non-negative and contains a non-zero digit => strictly positive (no float math).
@@ -20,7 +18,7 @@ export const positiveMoneyIn = moneyIn.refine((v) => /[1-9]/.test(v), 'Amount mu
 export const measureIn = z
   .string()
   .trim()
-  .regex(/^\d{1,10}(\.\d{1,2})?$/, 'Enter a non-negative number with at most 2 decimals')
+  .regex(MEASURE_RE, 'Enter a non-negative number with at most 2 decimals')
 export const isoDate = z.string().refine(isValidIsoDate, 'Use a valid date (YYYY-MM-DD)')
 export const id = z.string().trim().min(1).max(64)
 const text = (max: number) => z.string().trim().min(1, 'Required').max(max)
@@ -73,7 +71,7 @@ export const tripCostInput = z.object({
 
 export const tripBellaInput = z.object({
   source: text(200),
-  quantity: z.number().int().min(0).max(100_000_000),
+  quantity: z.number().int().min(0).max(QUANTITY_MAX),
   costPrice: moneyIn,
   sellingPrice: moneyIn,
   sourceOwnership: z.boolean(),

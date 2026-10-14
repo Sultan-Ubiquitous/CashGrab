@@ -6,6 +6,13 @@ const BASE = process.env.SMOKE_BASE ?? 'http://localhost:3000'
 const ORIGIN = BASE
 const DEMO_EMAIL = process.argv[2] ?? 'demo@quickmoney.test'
 
+// Seeding writes a well-known demo account: only ever run it against a local
+// dev server unless explicitly overridden.
+if (process.env.ALLOW_REMOTE_SEED !== '1' && !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(BASE)) {
+  console.error(`Refusing to seed non-local server ${BASE}. Set ALLOW_REMOTE_SEED=1 to override.`)
+  process.exit(1)
+}
+
 let cookie = ''
 async function req(method, path, body, expect = 200) {
   const res = await fetch(BASE + path, {

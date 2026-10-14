@@ -21,7 +21,6 @@ import { Route as DriversIndexRouteImport } from './routes/drivers/index'
 import { Route as PaymentsIndexRouteImport } from './routes/payments/index'
 import { Route as TripsIndexRouteImport } from './routes/trips/index'
 import { Route as TripsIdRouteImport } from './routes/trips/$id'
-import { Route as TripsChar96idRouteImport } from './routes/trips/`$id'
 import { Route as TripsNewRouteImport } from './routes/trips/new'
 import { Route as TrucksIndexRouteImport } from './routes/trucks/index'
 
@@ -85,11 +84,6 @@ const TripsIdRoute = TripsIdRouteImport.update({
   path: '/trips/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TripsChar96idRoute = TripsChar96idRouteImport.update({
-  id: '/trips/`$id',
-  path: '/trips/`$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TripsNewRoute = TripsNewRouteImport.update({
   id: '/trips/new',
   path: '/trips/new',
@@ -109,7 +103,6 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/api/$': typeof ApiSplatRoute
   '/trips/$id': typeof TripsIdRoute
-  '/trips/`$id': typeof TripsChar96idRoute
   '/trips/new': typeof TripsNewRoute
   '/bella/': typeof BellaIndexRoute
   '/customers/': typeof CustomersIndexRoute
@@ -126,7 +119,6 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/api/$': typeof ApiSplatRoute
   '/trips/$id': typeof TripsIdRoute
-  '/trips/`$id': typeof TripsChar96idRoute
   '/trips/new': typeof TripsNewRoute
   '/bella': typeof BellaIndexRoute
   '/customers': typeof CustomersIndexRoute
@@ -144,7 +136,6 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/api/$': typeof ApiSplatRoute
   '/trips/$id': typeof TripsIdRoute
-  '/trips/`$id': typeof TripsChar96idRoute
   '/trips/new': typeof TripsNewRoute
   '/bella/': typeof BellaIndexRoute
   '/customers/': typeof CustomersIndexRoute
@@ -163,7 +154,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/api/$'
     | '/trips/$id'
-    | '/trips/`$id'
     | '/trips/new'
     | '/bella/'
     | '/customers/'
@@ -180,7 +170,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/api/$'
     | '/trips/$id'
-    | '/trips/`$id'
     | '/trips/new'
     | '/bella'
     | '/customers'
@@ -197,7 +186,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/api/$'
     | '/trips/$id'
-    | '/trips/`$id'
     | '/trips/new'
     | '/bella/'
     | '/customers/'
@@ -215,7 +203,6 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   ApiSplatRoute: typeof ApiSplatRoute
   TripsIdRoute: typeof TripsIdRoute
-  TripsChar96idRoute: typeof TripsChar96idRoute
   TripsNewRoute: typeof TripsNewRoute
   BellaIndexRoute: typeof BellaIndexRoute
   CustomersIndexRoute: typeof CustomersIndexRoute
@@ -311,13 +298,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TripsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/trips/`$id': {
-      id: '/trips/`$id'
-      path: '/trips/`$id'
-      fullPath: '/trips/`$id'
-      preLoaderRoute: typeof TripsChar96idRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/trips/new': {
       id: '/trips/new'
       path: '/trips/new'
@@ -343,7 +323,6 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   ApiSplatRoute: ApiSplatRoute,
   TripsIdRoute: TripsIdRoute,
-  TripsChar96idRoute: TripsChar96idRoute,
   TripsNewRoute: TripsNewRoute,
   BellaIndexRoute: BellaIndexRoute,
   CustomersIndexRoute: CustomersIndexRoute,

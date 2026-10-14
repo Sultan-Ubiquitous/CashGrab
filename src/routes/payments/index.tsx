@@ -3,9 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { DataTable, useListState, type Column } from '~/components/DataTable'
 import { RequireAuth } from '~/components/RequireAuth'
-import { Button, Card, Field, Input, Modal, TextArea } from '~/components/ui'
+import { Button, Card, ErrorNote, Field, Input, Modal, TextArea } from '~/components/ui'
 import { api, errMessage, qs } from '~/lib/api'
 import { dateIst, money } from '~/lib/format'
+import { useEntitySave } from '~/lib/useEntitySave'
 import type { PaymentRowDto, TripDetailDto, PageDto } from '~/shared/schemas'
 
 export const Route = createFileRoute('/payments/')({
@@ -121,18 +122,12 @@ function PaymentsPage() {
 }
 
 function PaymentModal({ payment, onClose }: { payment: PaymentRowDto; onClose: () => void }) {
-  const qc = useQueryClient()
   const [form, setForm] = React.useState({ amount: payment.amount, paidOn: payment.paidOn, note: payment.note ?? '' })
-  const [error, setError] = React.useState('')
-  const update = useMutation({
-    mutationFn: () => api<TripDetailDto>('PATCH', `/payments/${payment.id}`, { ...form, note: form.note || null }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['payments'] })
-      qc.invalidateQueries({ queryKey: ['trip'] })
-      qc.invalidateQueries({ queryKey: ['dashboard'] })
-      onClose()
-    },
-    onError: (e) => setError(errMessage(e)),
+  const { error, pending, update } = useEntitySave({
+    update: (f: typeof form) =>
+      api<TripDetailDto>('PATCH', `/payments/${payment.id}`, { ...f, note: f.note || null }),
+    invalidate: [['payments'], ['trip'], ['dashboard']],
+    onClose,
   })
   return (
     <Modal open title="Edit payment" onClose={onClose}>
@@ -140,14 +135,10 @@ function PaymentModal({ payment, onClose }: { payment: PaymentRowDto; onClose: (
         className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault()
-          update.mutate()
+          update(form)
         }}
       >
-        {error ? (
-          <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-            {error}
-          </div>
-        ) : null}
+        {error ? <ErrorNote error={error} /> : null}
         <Field label="Amount (₹)">
           <Input
             required
@@ -171,7 +162,7 @@ function PaymentModal({ payment, onClose }: { payment: PaymentRowDto; onClose: (
           <Button type="button" variant="subtle" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={update.isPending}>
+          <Button type="submit" disabled={pending}>
             Save
           </Button>
         </div>

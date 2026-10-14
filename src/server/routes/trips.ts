@@ -1,5 +1,4 @@
 import { Hono } from 'hono'
-import { z } from 'zod'
 import {
   bellaListQuery,
   bellaOut,
@@ -21,14 +20,12 @@ import {
   tripTotalsOut,
   tripUpdate,
 } from '~/shared/schemas'
-import { ok, v, type AppEnv } from '../http'
+import { idParam, ok, v, type AppEnv } from '../http'
 import * as bella from '../services/bella'
 import * as payments from '../services/payments'
 import * as reports from '../services/reports'
 import * as trips from '../services/trips'
 import { tripTotals } from '../services/tripQuery'
-
-const idParam = z.object({ id: z.string().min(1).max(64) })
 
 export const tripsRoutes = new Hono<AppEnv>()
   .get('/', v('query', tripListQuery), async (c) =>

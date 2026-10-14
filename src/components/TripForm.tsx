@@ -1,10 +1,12 @@
 import * as React from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Button, Card, Field, Input, Modal, Select } from '~/components/ui'
+import { Button, Card, ErrorNote, Field, Input, Modal, Select } from '~/components/ui'
 import { api, errMessage } from '~/lib/api'
 import { todayIso } from '~/lib/format'
-import type { CustomerDto, DriverDto, TripDetailDto, TruckDto, PageDto } from '~/shared/schemas'
+import { useMasterOptions } from '~/lib/masterOptions'
+import type { TripDetailDto } from '~/shared/schemas'
+import { isMeasureStr, isMoneyStr, isNonEmptyStr, isQuantityStr } from '~/shared/validators'
 
 const COST_FIELDS = [
   ['diesel', 'Diesel'],
@@ -82,10 +84,6 @@ function preview(f: FormState) {
   return { revenue, brickCost, total, margin: revenue - brickCost - total }
 }
 
-const MONEY_RE = /^\d{1,12}(\.\d{1,2})?$/
-const isMoney = (v: string) => MONEY_RE.test(v.trim())
-const nonEmpty = (v: string) => v.trim().length > 0
-
 export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () => void }) {
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -100,48 +98,36 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
   const setCost = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, costs: { ...f.costs, [k]: e.target.value } }))
 
-  const { data: customers } = useQuery({
-    queryKey: ['customers', 'options'],
-    queryFn: () => api<PageDto<CustomerDto>>('GET', '/customers?page=1&pageSize=100&sort=name&order=asc'),
-  })
-  const { data: trucks } = useQuery({
-    queryKey: ['trucks', 'options'],
-    queryFn: () => api<PageDto<TruckDto>>('GET', '/trucks?page=1&pageSize=100&sort=registrationNumber&order=asc'),
-  })
-  const { data: drivers } = useQuery({
-    queryKey: ['drivers', 'options'],
-    queryFn: () => api<PageDto<DriverDto>>('GET', '/drivers?page=1&pageSize=100&sort=name&order=asc'),
-  })
+  const { customers, trucks, drivers } = useMasterOptions()
 
   function stepError(): string {
     if (step === 0) {
       if (!form.customer.id && !form.customer.fresh) return 'Please choose who is buying, or add a new customer.'
       if (!form.truck.id && !form.truck.fresh) return 'Please choose which truck, or add a new truck.'
       if (!form.driver.id && !form.driver.fresh) return 'Please choose who is driving, or add a new driver.'
-      if (!nonEmpty(form.startPoint) || !nonEmpty(form.endPoint)) return 'Please fill From and To.'
-      if (!nonEmpty(form.tripDate)) return 'Please pick the trip date.'
+      if (!isNonEmptyStr(form.startPoint) || !isNonEmptyStr(form.endPoint)) return 'Please fill From and To.'
+      if (!isNonEmptyStr(form.tripDate)) return 'Please pick the trip date.'
+      if (!isMeasureStr(form.distance)) return 'Please write the distance in km (numbers only).'
       return ''
     }
     if (step === 1) {
       if (brickLocked) return ''
-      if (!nonEmpty(form.source)) return 'Please write where the bricks come from.'
-      if (!nonEmpty(form.quantity)) return 'Please write how many bricks.'
-      if (!isMoney(form.costPrice)) return 'Please write the buying price for one brick.'
-      if (!isMoney(form.sellingPrice)) return 'Please write the selling price for one brick.'
+      if (!isNonEmptyStr(form.source)) return 'Please write where the bricks come from.'
+      if (!isQuantityStr(form.quantity)) return 'Please write how many bricks (whole number).'
+      if (!isMoneyStr(form.costPrice)) return 'Please write the buying price for one brick.'
+      if (!isMoneyStr(form.sellingPrice)) return 'Please write the selling price for one brick.'
       return ''
     }
     for (const [k, label] of COST_FIELDS) {
-      if (!isMoney(form.costs[k] || '')) return `Please write the ${label.toLowerCase()} cost (0 if none).`
+      if (!isMoneyStr(form.costs[k] || '')) return `Please write the ${label.toLowerCase()} cost (0 if none).`
     }
     return ''
   }
 
   const refPayload = <T,>(s: MasterSel<T>) => (s.fresh ? { new: s.fresh } : { id: s.id })
 
-  const payload = () => ({
-    customer: refPayload(form.customer),
-    truck: refPayload(form.truck),
-    driver: refPayload(form.driver),
+  /** Fields shared by the create and edit payloads. */
+  const basePayload = () => ({
     tripDate: form.tripDate,
     distance: form.distance,
     startPoint: form.startPoint,
@@ -159,25 +145,18 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
     costs: Object.fromEntries(COST_FIELDS.map(([k]) => [k, form.costs[k]])),
   })
 
+  const payload = () => ({
+    ...basePayload(),
+    customer: refPayload(form.customer),
+    truck: refPayload(form.truck),
+    driver: refPayload(form.driver),
+  })
+
   const editPayload = () => ({
+    ...basePayload(),
     customerId: form.customer.id || undefined,
     truckId: form.truck.id || undefined,
     driverId: form.driver.id || undefined,
-    tripDate: form.tripDate,
-    distance: form.distance,
-    startPoint: form.startPoint,
-    endPoint: form.endPoint,
-    includeBrickCost: form.sourceOwnership ? form.includeBrickCost : true,
-    bella: brickLocked
-      ? {}
-      : {
-          source: form.source,
-          quantity: Number(form.quantity),
-          costPrice: form.costPrice,
-          sellingPrice: form.sellingPrice,
-          sourceOwnership: form.sourceOwnership,
-        },
-    costs: Object.fromEntries(COST_FIELDS.map(([k]) => [k, form.costs[k]])),
   })
 
   const save = useMutation({
@@ -211,38 +190,34 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
   const p = preview(form)
   const profitLine =
     p.margin >= 0
-      ? `You earn ₹${p.margin.toFixed(2)} on this trip.`
-      : `This trip loses ₹${Math.abs(p.margin).toFixed(2)}.`
+      ? `You earn â‚¹${p.margin.toFixed(2)} on this trip.`
+      : `This trip loses â‚¹${Math.abs(p.margin).toFixed(2)}.`
 
   return (
     <div className="space-y-4">
       <StepsBar step={step} onGo={(s) => (s < step ? setStep(s) : next())} />
-      {error ? (
-        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </div>
-      ) : null}
+      {error ? <ErrorNote error={error} /> : null}
 
       {step === 0 && (
-        <Card title="Step 1 of 3 — Trip">
+        <Card title="Step 1 of 3 â€” Trip">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <MasterPicker
               label="Who is buying?"
-              options={(customers?.items ?? []).map((c) => ({ id: c.id, label: c.name }))}
+              options={customers.map((c) => ({ id: c.id, label: c.name }))}
               sel={form.customer}
               onPick={(id) => set('customer', { id, fresh: null })}
               onNew={isEdit ? undefined : () => setNewModal('customer')}
             />
             <MasterPicker
               label="Which truck?"
-              options={(trucks?.items ?? []).map((t) => ({ id: t.id, label: t.registrationNumber }))}
+              options={trucks.map((t) => ({ id: t.id, label: t.registrationNumber }))}
               sel={form.truck}
               onPick={(id) => set('truck', { id, fresh: null })}
               onNew={isEdit ? undefined : () => setNewModal('truck')}
             />
             <MasterPicker
               label="Who is driving?"
-              options={(drivers?.items ?? []).map((d) => ({ id: d.id, label: d.name }))}
+              options={drivers.map((d) => ({ id: d.id, label: d.name }))}
               sel={form.driver}
               onPick={(id) => set('driver', { id, fresh: null })}
               onNew={isEdit ? undefined : () => setNewModal('driver')}
@@ -273,8 +248,8 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
 
       {step === 1 && (
         <Card
-          title="Step 2 of 3 — Bricks"
-          right={brickLocked ? <span className="text-xs text-amber-600">Locked — money already received</span> : null}
+          title="Step 2 of 3 â€” Bricks"
+          right={brickLocked ? <span className="text-xs text-amber-600">Locked â€” money already received</span> : null}
         >
           <p className="mb-3 text-xs text-gray-500">
             {brickLocked
@@ -299,7 +274,7 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
                 placeholder="e.g. 1000"
               />
             </Field>
-            <Field label="Buying price for one brick (₹)">
+            <Field label="Buying price for one brick (â‚¹)">
               <Input
                 disabled={brickLocked}
                 inputMode="decimal"
@@ -307,7 +282,7 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
                 onChange={(e) => set('costPrice', e.target.value)}
               />
             </Field>
-            <Field label="Selling price for one brick (₹)">
+            <Field label="Selling price for one brick (â‚¹)">
               <Input
                 disabled={brickLocked}
                 inputMode="decimal"
@@ -345,11 +320,11 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
       )}
 
       {step === 2 && (
-        <Card title="Step 3 of 3 — Trip costs">
+        <Card title="Step 3 of 3 â€” Trip costs">
           <p className="mb-3 text-xs text-gray-500">Write each cost. Put 0 where there is no cost.</p>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {COST_FIELDS.map(([k, label]) => (
-              <Field key={k} label={`${label} (₹)`}>
+              <Field key={k} label={`${label} (â‚¹)`}>
                 <Input inputMode="decimal" value={form.costs[k]} onChange={setCost(k)} />
               </Field>
             ))}
@@ -364,13 +339,13 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
 
       <div className="flex justify-between gap-2">
         <Button variant="subtle" disabled={step === 0} onClick={() => setStep((s) => Math.max(0, s - 1))}>
-          ← Back
+          â† Back
         </Button>
         {step < 2 ? (
-          <Button onClick={next}>Next →</Button>
+          <Button onClick={next}>Next â†’</Button>
         ) : (
           <Button onClick={() => save.mutate()} disabled={save.isPending}>
-            {save.isPending ? 'Saving…' : trip ? 'Save trip' : 'Save trip'}
+            {save.isPending ? 'Saving…' : 'Save trip'}
           </Button>
         )}
       </div>
@@ -423,7 +398,7 @@ function StepsBar({ step, onGo }: { step: number; onGo: (s: number) => void }) {
                   : 'border-gray-200 text-gray-400 dark:border-gray-800'
             }`}
           >
-            {label} {i < step ? '✓' : ''}
+            {label} {i < step ? 'âœ“' : ''}
           </button>
         </li>
       ))}
@@ -454,13 +429,13 @@ function MasterPicker<T>({
               if (e.target.value !== '__new__') onPick(e.target.value)
             }}
           >
-            <option value="">Choose…</option>
+            <option value="">Chooseâ€¦</option>
             {options.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.label}
               </option>
             ))}
-            {sel.fresh ? <option value="__new__">New (just added) ✓</option> : null}
+            {sel.fresh ? <option value="__new__">New (just added) âœ“</option> : null}
           </Select>
           {onNew ? (
             <Button type="button" variant="subtle" onClick={onNew} title="Add new">
@@ -480,11 +455,7 @@ function NewCustomerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: 
   return (
     <Modal open title="New customer" onClose={onClose}>
       <div className="space-y-3">
-        {err ? (
-          <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-            {err}
-          </div>
-        ) : null}
+        {err ? <ErrorNote error={err} /> : null}
         <Field label="Customer name">
           <Input
             value={form.name}
@@ -496,7 +467,7 @@ function NewCustomerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: 
           <Input
             value={form.phone}
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="+91…"
+            placeholder="+91â€¦"
           />
         </Field>
         <Field label="Place / village">
@@ -512,11 +483,11 @@ function NewCustomerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: 
           </Button>
           <Button
             onClick={() => {
-              if (!nonEmpty(form.name)) {
+              if (!isNonEmptyStr(form.name)) {
                 setErr('Please write the customer name.')
                 return
               }
-              if (!nonEmpty(form.location)) {
+              if (!isNonEmptyStr(form.location)) {
                 setErr('Please write the place.')
                 return
               }
@@ -542,11 +513,7 @@ function NewTruckModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: New
   return (
     <Modal open title="New truck" onClose={onClose}>
       <div className="space-y-3">
-        {err ? (
-          <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-            {err}
-          </div>
-        ) : null}
+        {err ? <ErrorNote error={err} /> : null}
         <Field label="Truck number">
           <Input
             value={form.registrationNumber}
@@ -558,7 +525,7 @@ function NewTruckModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: New
           The three readings below can be 0 for now. You can change them later on the Trucks page.
         </p>
         <div className="grid grid-cols-3 gap-2">
-          <Field label="Diesel cost (₹)">
+          <Field label="Diesel cost (â‚¹)">
             <Input
               inputMode="decimal"
               value={form.dieselCost}
@@ -586,11 +553,11 @@ function NewTruckModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: New
           </Button>
           <Button
             onClick={() => {
-              if (!nonEmpty(form.registrationNumber)) {
+              if (!isNonEmptyStr(form.registrationNumber)) {
                 setErr('Please write the truck number.')
                 return
               }
-              if (!isMoney(form.dieselCost) || !isMoney(form.dieselLiters) || !isMoney(form.distanceTraveled)) {
+              if (!isMoneyStr(form.dieselCost) || !isMeasureStr(form.dieselLiters) || !isMeasureStr(form.distanceTraveled)) {
                 setErr('Please check the three readings (numbers only).')
                 return
               }
@@ -611,11 +578,7 @@ function NewDriverModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: Ne
   return (
     <Modal open title="New driver" onClose={onClose}>
       <div className="space-y-3">
-        {err ? (
-          <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-            {err}
-          </div>
-        ) : null}
+        {err ? <ErrorNote error={err} /> : null}
         <Field label="Driver name">
           <Input
             value={form.name}
@@ -627,7 +590,7 @@ function NewDriverModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: Ne
           <Input
             value={form.phone}
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="+91…"
+            placeholder="+91â€¦"
           />
         </Field>
         <div className="flex justify-end gap-2">
@@ -636,11 +599,11 @@ function NewDriverModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: Ne
           </Button>
           <Button
             onClick={() => {
-              if (!nonEmpty(form.name)) {
+              if (!isNonEmptyStr(form.name)) {
                 setErr('Please write the driver name.')
                 return
               }
-              if (!nonEmpty(form.phone)) {
+              if (!isNonEmptyStr(form.phone)) {
                 setErr('Please write the phone number.')
                 return
               }

@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { createAuth } from './auth'
 import { createDb, type Db } from './db'
+import type { AppEnv } from './env'
 import { toErrorResponse } from './lib/errors'
 import { exportRoutes } from './exports/routes'
 import { customersRoutes, driversRoutes, trucksRoutes } from './routes/master'
@@ -8,26 +9,27 @@ import { meRoutes } from './routes/me'
 import { bellaRoutes, paymentsRoutes, reportsRoutes, tripsRoutes } from './routes/trips'
 import type { AppVars } from './http'
 
-export interface ServerEnv {
-  DATABASE_URL: string
-  BETTER_AUTH_SECRET: string
-  BETTER_AUTH_URL: string
-  GOOGLE_CLIENT_ID?: string
-  GOOGLE_CLIENT_SECRET?: string
-}
-
 /**
  * Builds the whole /api app. Runtime-agnostic: the caller supplies the
  * environment and a `waitUntil` (Cloudflare) or a no-op (tests/Node).
+ * (The import of './env' is type-only and erased at build time.)
  */
-export function buildApp(env: ServerEnv, keepAlive: (p: Promise<unknown>) => void = (p) => void p) {
+export function buildApp(env: AppEnv, keepAlive: (p: Promise<unknown>) => void = (p) => void p) {
   const app = new Hono<{ Variables: AppVars }>().basePath('/api')
+
+  // Security headers on every API response (JSON and streamed files alike).
+  // Prepared before the handler runs so they merge into constructed responses.
+  app.use('*', async (c, next) => {
+    c.header('X-Content-Type-Options', 'nosniff')
+    c.header('Referrer-Policy', 'no-referrer')
+    await next()
+  })
 
   // Request scope: a fresh Prisma client (and auth instance) per request.
   // The client is closed in `finally` — unless a route streams a response
   // and takes over ownership of the connection.
   app.use('*', async (c, next) => {
-    const db: Db = await createDb(env.DATABASE_URL)
+    const db: Db = createDb(env.DATABASE_URL)
     const auth = createAuth(db, {
       secret: env.BETTER_AUTH_SECRET,
       baseURL: env.BETTER_AUTH_URL,

@@ -1,9 +1,10 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { bellaListQuery, masterListQuery, paymentListQuery, tripFilters, tripListQuery } from '~/shared/schemas'
-import { todayIst } from '../lib/dates'
+import { todayIst } from '~/shared/dates'
 import type { AppEnv, Ctx } from '../http'
 import { v } from '../http'
+import type { Db } from '../db'
 import { monthlySummary } from '../services/reports'
 import { tripTotals } from '../services/tripQuery'
 import type { Dataset } from './datasets'
@@ -124,67 +125,47 @@ export const exportRoutes = new Hono<AppEnv>()
   // C. Per-module export with that module's filters.
   .get('/:module', async (c) => {
     const module = c.req.param('module')
-    const { db, userId } = c.var
-    let ds: Dataset
-    switch (module) {
-      case 'trips': {
-        const q = await tripListQuery.parseAsync(Object.fromEntries(new URL(c.req.url).searchParams))
-        const { sort: _s, order: _o, page: _p, pageSize: _ps, ...f } = q
-        ds = tripsDataset(db, userId, f)
-        break
-      }
-      case 'trip-costs': {
-        const q = await tripFilters.parseAsync(Object.fromEntries(new URL(c.req.url).searchParams))
-        ds = tripCostsDataset(db, userId, q)
-        break
-      }
-      case 'trucks': {
-        const q = await masterListQuery.parseAsync(Object.fromEntries(new URL(c.req.url).searchParams))
-        const { sort: _s, order: _o, page: _p, pageSize: _ps, ...f } = q
-        ds = trucksDataset(db, userId, f)
-        break
-      }
-      case 'drivers': {
-        const q = await masterListQuery.parseAsync(Object.fromEntries(new URL(c.req.url).searchParams))
-        const { sort: _s, order: _o, page: _p, pageSize: _ps, ...f } = q
-        ds = driversDataset(db, userId, f)
-        break
-      }
-      case 'customers': {
-        const q = await masterListQuery.parseAsync(Object.fromEntries(new URL(c.req.url).searchParams))
-        const { sort: _s, order: _o, page: _p, pageSize: _ps, ...f } = q
-        ds = customersDataset(db, userId, f)
-        break
-      }
-      case 'bella': {
-        const q = await bellaListQuery.parseAsync(Object.fromEntries(new URL(c.req.url).searchParams))
-        const { sort: _s, order: _o, page: _p, pageSize: _ps, ...f } = q
-        ds = bellaDataset(db, userId, f)
-        break
-      }
-      case 'payments': {
-        const q = await paymentListQuery.parseAsync(Object.fromEntries(new URL(c.req.url).searchParams))
-        const { sort: _s, order: _o, page: _p, pageSize: _ps, ...f } = q
-        ds = paymentsDataset(db, userId, f)
-        break
-      }
-      default:
-        return c.json(
-          {
-            error: {
-              code: 'NOT_FOUND',
-              message: 'Unknown export module',
-              details: { modules: ['trips', 'trip-costs', 'trucks', 'drivers', 'customers', 'bella', 'payments'] },
-            },
+    const build = MODULE_EXPORTS[module]
+    if (!build) {
+      return c.json(
+        {
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Unknown export module',
+            details: { modules: Object.keys(MODULE_EXPORTS) },
           },
-          404,
-        )
+        },
+        404,
+      )
     }
-    const { format } = formatQuery.parse({
-      format: new URL(c.req.url).searchParams.get('format') ?? undefined,
-    })
-    const dsWithMeta: Dataset = ds
+    const params = Object.fromEntries(new URL(c.req.url).searchParams)
+    const ds = await build(c.var.db, c.var.userId, params)
+    const { format } = formatQuery.parse({ format: params.format })
     return streamFile(c, `${module}-${todayIst()}.${format}`, format === 'csv' ? MIME.csv : MIME.xlsx, (sink) =>
-      format === 'csv' ? writeCsv(sink, dsWithMeta) : writeXlsx(sink, [dsWithMeta]),
+      format === 'csv' ? writeCsv(sink, ds) : writeXlsx(sink, [ds]),
     )
   })
+
+type UrlParams = Record<string, string>
+
+/** Pagination/sort keys accepted by the list queries but irrelevant to exports. */
+function stripPaging<T extends { sort?: unknown; order?: unknown; page?: unknown; pageSize?: unknown }>(
+  q: T,
+): Omit<T, 'sort' | 'order' | 'page' | 'pageSize'> {
+  const { sort: _sort, order: _order, page: _page, pageSize: _pageSize, ...filters } = q
+  return filters
+}
+
+/**
+ * One entry per exportable module: its filter contract and how to build the
+ * dataset. Unknown modules fall through to the 404 above.
+ */
+const MODULE_EXPORTS: Record<string, (db: Db, userId: string, params: UrlParams) => Promise<Dataset>> = {
+  trips: async (db, userId, p) => tripsDataset(db, userId, stripPaging(await tripListQuery.parseAsync(p))),
+  'trip-costs': async (db, userId, p) => tripCostsDataset(db, userId, await tripFilters.parseAsync(p)),
+  trucks: async (db, userId, p) => trucksDataset(db, userId, stripPaging(await masterListQuery.parseAsync(p))),
+  drivers: async (db, userId, p) => driversDataset(db, userId, stripPaging(await masterListQuery.parseAsync(p))),
+  customers: async (db, userId, p) => customersDataset(db, userId, stripPaging(await masterListQuery.parseAsync(p))),
+  bella: async (db, userId, p) => bellaDataset(db, userId, stripPaging(await bellaListQuery.parseAsync(p))),
+  payments: async (db, userId, p) => paymentsDataset(db, userId, stripPaging(await paymentListQuery.parseAsync(p))),
+}

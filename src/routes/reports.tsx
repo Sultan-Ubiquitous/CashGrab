@@ -2,11 +2,12 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { RequireAuth } from '~/components/RequireAuth'
-import { MonthlyTable } from '~/routes/index'
+import { MonthlyTable } from '~/components/MonthlyTable'
 import { Badge, Button, Card, Field, Input, Select, Stat } from '~/components/ui'
 import { api, qs } from '~/lib/api'
 import { dateIst, money, qty } from '~/lib/format'
-import type { CustomerDto, DriverDto, MonthlyDto, TruckDto, PageDto, TripTotalsDto } from '~/shared/schemas'
+import { useMasterOptions } from '~/lib/masterOptions'
+import type { MonthlyDto, TripTotalsDto } from '~/shared/schemas'
 
 export const Route = createFileRoute('/reports')({
   component: () => (
@@ -35,18 +36,7 @@ function ReportsPage() {
     queryKey: ['reportsMonthly', params],
     queryFn: () => api<MonthlyDto>('GET', `/reports/monthly${qs(params)}`),
   })
-  const { data: customers } = useQuery({
-    queryKey: ['customers', 'options'],
-    queryFn: () => api<PageDto<CustomerDto>>('GET', '/customers?page=1&pageSize=100&sort=name&order=asc'),
-  })
-  const { data: trucks } = useQuery({
-    queryKey: ['trucks', 'options'],
-    queryFn: () => api<PageDto<TruckDto>>('GET', '/trucks?page=1&pageSize=100&sort=registrationNumber&order=asc'),
-  })
-  const { data: drivers } = useQuery({
-    queryKey: ['drivers', 'options'],
-    queryFn: () => api<PageDto<DriverDto>>('GET', '/drivers?page=1&pageSize=100&sort=name&order=asc'),
-  })
+  const { customers, trucks, drivers } = useMasterOptions()
 
   const reportQs = qs(params)
 
@@ -67,32 +57,32 @@ function ReportsPage() {
           </Field>
           <Field label="Customer">
             <Select value={f.customerId} onChange={(e) => patch({ customerId: e.target.value })} className="w-36">
-              <option value="">All</option>
-              {customers?.items.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+                  <option value="">All</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
             </Select>
           </Field>
           <Field label="Truck">
             <Select value={f.truckId} onChange={(e) => patch({ truckId: e.target.value })} className="w-32">
-              <option value="">All</option>
-              {trucks?.items.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.registrationNumber}
-                </option>
-              ))}
+                  <option value="">All</option>
+                  {trucks.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.registrationNumber}
+                    </option>
+                  ))}
             </Select>
           </Field>
           <Field label="Driver">
             <Select value={f.driverId} onChange={(e) => patch({ driverId: e.target.value })} className="w-32">
-              <option value="">All</option>
-              {drivers?.items.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
+                  <option value="">All</option>
+                  {drivers.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
             </Select>
           </Field>
           <Field label="Payment">
