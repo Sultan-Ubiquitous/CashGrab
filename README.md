@@ -24,29 +24,30 @@ create trucks/drivers/customers and your first trip.
 
 ### Environment (`.env`, read by both Prisma CLI and wrangler dev)
 
-| Variable | Meaning |
-|---|---|
-| `DATABASE_URL` | Pooled connection (Neon hostname contains `-pooler`) — used by the Worker at runtime |
-| `DIRECT_URL` | Direct (unpooled) connection — used by the Prisma CLI for migrations |
-| `TEST_DATABASE_URL` | Disposable database for tests (not needed anymore; reserved) |
-| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
-| `BETTER_AUTH_URL` | App origin, e.g. `http://localhost:3000` |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth; authorise redirect URI `{BETTER_AUTH_URL}/api/auth/callback/google` |
+| Variable                                    | Meaning                                                                              |
+| ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `DATABASE_URL`                              | Pooled connection (Neon hostname contains `-pooler`) — used by the Worker at runtime |
+| `DIRECT_URL`                                | Direct (unpooled) connection — used by the Prisma CLI for migrations                 |
+| `TEST_DATABASE_URL`                         | Disposable database for tests (not needed anymore; reserved)                         |
+| `BETTER_AUTH_SECRET`                        | `openssl rand -base64 32`                                                            |
+| `BETTER_AUTH_URL`                           | App origin, e.g. `http://localhost:3000`                                             |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth; authorise redirect URI `{BETTER_AUTH_URL}/api/auth/callback/google`    |
 
 ---
 
 ## Scripts
 
-| Command | What it does |
-|---|---|
-| `pnpm dev` | Dev server (Cloudflare Workers runtime via miniflare) on :3000 |
-| `pnpm build` | Production worker build into `dist/` |
-| `pnpm preview` | Serves the built worker locally (port 4173) |
-| `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm test` | Vitest unit tests (formulas, dates, export-cell hygiene) |
-| `pnpm smoke` | End-to-end HTTP suite against a running server (`SMOKE_BASE` to override origin) |
-| `pnpm db:migrate` / `db:deploy` / `db:studio` | Prisma migrations |
-| `pnpm deploy` | `build` + `wrangler deploy` |
+| Command                                       | What it does                                                                                                         |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                    | Dev server (Cloudflare Workers runtime via miniflare) on :3000                                                       |
+| `pnpm build`                                  | Production worker build into `dist/`                                                                                 |
+| `pnpm preview`                                | Serves the built worker locally (port 4173)                                                                          |
+| `pnpm typecheck`                              | `tsc --noEmit`                                                                                                       |
+| `pnpm test`                                   | Vitest unit tests (formulas, dates, export-cell hygiene)                                                             |
+| `pnpm smoke`                                  | End-to-end HTTP suite against a running server (`SMOKE_BASE` to override origin)                                     |
+| `pnpm seed [email]`                           | Seeds a demo account (`demo@quickmoney.test` / `demo-password-1`) with 10 trips across Aug–Oct; skips if data exists |
+| `pnpm db:migrate` / `db:deploy` / `db:studio` | Prisma migrations                                                                                                    |
+| `pnpm deploy`                                 | `build` + `wrangler deploy`                                                                                          |
 
 ---
 
@@ -63,6 +64,7 @@ pnpm deploy
 ```
 
 Notes:
+
 - Migrations run from your machine against Neon: `DIRECT_URL=... pnpm prisma migrate deploy`.
 - The bundle is ~2.2 MB gzipped (includes the Prisma WASM query compiler and
   ExcelJS). It fits the Workers 3 MB free-plan limit, but larger data plans
@@ -82,7 +84,7 @@ and exports all read from these, so numbers can never disagree.
   `includeBrickCost` — which may be false **only for own-kiln bricks**
   (`sourceOwnership = true`); enforced by service checks and a DB CHECK.
 - **Total trip cost** = diesel + adblue + royalty + toll taxes + driver salary
-  + miscellaneous + labour (never stored, always summed)
+  - miscellaneous + labour (never stored, always summed)
 - **Net margin (calculated)** = revenue − brick cost − total trip cost
 - **Net margin (effective)** = manual override ?? calculated. The override is
   stored separately, survives every recalculation, and is flagged "manual" in

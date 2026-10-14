@@ -35,39 +35,64 @@ function ReportsPage() {
     queryKey: ['reportsMonthly', params],
     queryFn: () => api<MonthlyDto>('GET', `/reports/monthly${qs(params)}`),
   })
-  const { data: customers } = useQuery({ queryKey: ['customers', 'options'], queryFn: () => api<PageDto<CustomerDto>>('GET', '/customers?page=1&pageSize=100&sort=name&order=asc') })
-  const { data: trucks } = useQuery({ queryKey: ['trucks', 'options'], queryFn: () => api<PageDto<TruckDto>>('GET', '/trucks?page=1&pageSize=100&sort=registrationNumber&order=asc') })
-  const { data: drivers } = useQuery({ queryKey: ['drivers', 'options'], queryFn: () => api<PageDto<DriverDto>>('GET', '/drivers?page=1&pageSize=100&sort=name&order=asc') })
+  const { data: customers } = useQuery({
+    queryKey: ['customers', 'options'],
+    queryFn: () => api<PageDto<CustomerDto>>('GET', '/customers?page=1&pageSize=100&sort=name&order=asc'),
+  })
+  const { data: trucks } = useQuery({
+    queryKey: ['trucks', 'options'],
+    queryFn: () => api<PageDto<TruckDto>>('GET', '/trucks?page=1&pageSize=100&sort=registrationNumber&order=asc'),
+  })
+  const { data: drivers } = useQuery({
+    queryKey: ['drivers', 'options'],
+    queryFn: () => api<PageDto<DriverDto>>('GET', '/drivers?page=1&pageSize=100&sort=name&order=asc'),
+  })
 
   const reportQs = qs(params)
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold">Reports & exports</h1>
-        <p className="text-xs text-gray-500">Same filters, same formulas as the dashboard — exported files match what you see here.</p>
+        <h1 className="text-xl font-bold">Reports</h1>
+        <p className="text-xs text-gray-500">What you see here is what gets downloaded.</p>
       </div>
 
-      <Card title="Filters (apply to totals, monthly summary and report exports)">
+      <Card title="Filters (change what you see and download)">
         <div className="flex flex-wrap items-end gap-2">
-          <Field label="Trip date from"><Input type="date" value={f.from} onChange={(e) => patch({ from: e.target.value })} className="w-36" /></Field>
-          <Field label="to"><Input type="date" value={f.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" /></Field>
+          <Field label="Trip date from">
+            <Input type="date" value={f.from} onChange={(e) => patch({ from: e.target.value })} className="w-36" />
+          </Field>
+          <Field label="to">
+            <Input type="date" value={f.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" />
+          </Field>
           <Field label="Customer">
             <Select value={f.customerId} onChange={(e) => patch({ customerId: e.target.value })} className="w-36">
               <option value="">All</option>
-              {customers?.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {customers?.items.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="Truck">
             <Select value={f.truckId} onChange={(e) => patch({ truckId: e.target.value })} className="w-32">
               <option value="">All</option>
-              {trucks?.items.map((t) => <option key={t.id} value={t.id}>{t.registrationNumber}</option>)}
+              {trucks?.items.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.registrationNumber}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="Driver">
             <Select value={f.driverId} onChange={(e) => patch({ driverId: e.target.value })} className="w-32">
               <option value="">All</option>
-              {drivers?.items.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              {drivers?.items.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="Payment">
@@ -83,46 +108,68 @@ function ReportsPage() {
       {totals ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Stat label="Trips" value={qty(totals.tripCount)} />
-          <Stat label="Revenue" value={money(totals.revenue)} />
-          <Stat label="Total trip expenses" value={money(totals.totalTripCost)} />
-          <Stat label="Net margin (calculated)" value={money(totals.netMarginCalculated)} tone={Number(totals.netMarginCalculated) >= 0 ? 'pos' : 'neg'} />
+          <Stat label="Total sales" value={money(totals.revenue)} />
+          <Stat label="Total trip costs" value={money(totals.totalTripCost)} />
           <Stat
-            label="Net margin (effective)"
+            label="Profit (worked out)"
+            value={money(totals.netMarginCalculated)}
+            tone={Number(totals.netMarginCalculated) >= 0 ? 'pos' : 'neg'}
+          />
+          <Stat
+            label="Final profit"
             value={money(totals.netMarginEffective)}
-            sub={totals.overriddenCount ? `${totals.overriddenCount} overridden` : 'no overrides'}
+            sub={totals.overriddenCount ? `${totals.overriddenCount} fixed by hand` : 'no hand fixes'}
             tone={Number(totals.netMarginEffective) >= 0 ? 'pos' : 'neg'}
           />
-          <Stat label="Amount received" value={money(totals.amountReceived)} />
-          <Stat label="Outstanding" value={money(totals.outstanding)} sub={`${qty(totals.dueTripCount)} due trips`} />
+          <Stat label="Money received" value={money(totals.amountReceived)} />
+          <Stat
+            label="To collect"
+            value={money(totals.outstanding)}
+            sub={`${qty(totals.dueTripCount)} trips to collect from`}
+          />
         </div>
       ) : null}
 
       <Card
-        title="Monthly expense summary"
-        right={monthly ? <Badge>{monthly.from ? `${dateIst(monthly.from)} – ${dateIst(monthly.to)}` : 'all months'}</Badge> : null}
+        title="Costs by month"
+        right={
+          monthly ? (
+            <Badge>{monthly.from ? `${dateIst(monthly.from)} – ${dateIst(monthly.to)}` : 'all months'}</Badge>
+          ) : null
+        }
       >
         {monthly ? <MonthlyTable months={monthly.months} /> : <p className="text-sm text-gray-500">Loading…</p>}
         {monthly && monthly.months.length > 0 ? (
           <div className="mt-3 flex justify-end text-sm tabular-nums">
-            <span className="text-gray-500">Period total: <b>{money(monthly.totals.total)}</b></span>
+            <span className="text-gray-500">
+              Period total: <b>{money(monthly.totals.total)}</b>
+            </span>
           </div>
         ) : null}
       </Card>
 
-      <Card title="Exports">
+      <Card title="Downloads">
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium">Complete data export (all modules):</span>
-            <a href="/api/exports/full?format=csv"><Button variant="subtle">CSV (ZIP)</Button></a>
-            <a href="/api/exports/full?format=xlsx"><Button variant="subtle">Excel workbook</Button></a>
+            <span className="text-sm font-medium">Everything (all pages):</span>
+            <a href="/api/exports/full?format=csv">
+              <Button variant="subtle">CSV (ZIP)</Button>
+            </a>
+            <a href="/api/exports/full?format=xlsx">
+              <Button variant="subtle">Excel workbook</Button>
+            </a>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium">Filtered report export (current filters):</span>
-            <a href={`/api/exports/report?format=csv${reportQs}`}><Button variant="subtle">CSV (ZIP)</Button></a>
-            <a href={`/api/exports/report?format=xlsx${reportQs}`}><Button variant="subtle">Excel workbook</Button></a>
+            <span className="text-sm font-medium">Report with the filters above:</span>
+            <a href={`/api/exports/report?format=csv${reportQs}`}>
+              <Button variant="subtle">CSV (ZIP)</Button>
+            </a>
+            <a href={`/api/exports/report?format=xlsx${reportQs}`}>
+              <Button variant="subtle">Excel workbook</Button>
+            </a>
           </div>
           <div className="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-3 dark:border-gray-800">
-            <Field label="Single module">
+            <Field label="One page only">
               <Select value={module} onChange={(e) => setModule(e.target.value)} className="w-40">
                 <option value="trips">Trips</option>
                 <option value="trip-costs">Trip costs</option>
@@ -133,12 +180,20 @@ function ReportsPage() {
                 <option value="payments">Payments</option>
               </Select>
             </Field>
-            <a href={`/api/exports/${module}?format=csv${module === 'trips' || module === 'trip-costs' ? reportQs : ''}`}><Button variant="subtle">Export CSV</Button></a>
-            <a href={`/api/exports/${module}?format=xlsx${module === 'trips' || module === 'trip-costs' ? reportQs : ''}`}><Button variant="subtle">Export XLSX</Button></a>
+            <a
+              href={`/api/exports/${module}?format=csv${module === 'trips' || module === 'trip-costs' ? reportQs : ''}`}
+            >
+              <Button variant="subtle">Export CSV</Button>
+            </a>
+            <a
+              href={`/api/exports/${module}?format=xlsx${module === 'trips' || module === 'trip-costs' ? reportQs : ''}`}
+            >
+              <Button variant="subtle">Export XLSX</Button>
+            </a>
           </div>
           <p className="text-[11px] text-gray-400">
-            Exports stream from the database and include ids + foreign keys so datasets stay joinable. Text cells are
-            formula-injection safe; amounts are exported as numbers with 2 decimals.
+            Files are made straight from your records and include ids + foreign keys so datasets stay joinable. Text
+            cells are formula-injection safe; amounts are exported as numbers with 2 decimals.
           </p>
         </div>
       </Card>

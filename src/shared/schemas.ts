@@ -12,14 +12,8 @@ import { isValidIsoDate } from '~/server/lib/dates'
 const MONEY_RE = /^\d{1,12}(\.\d{1,2})?$/
 const SIGNED_MONEY_RE = /^-?\d{1,12}(\.\d{1,2})?$/
 
-export const moneyIn = z
-  .string()
-  .trim()
-  .regex(MONEY_RE, 'Enter a non-negative amount with at most 2 decimals')
-export const signedMoneyIn = z
-  .string()
-  .trim()
-  .regex(SIGNED_MONEY_RE, 'Enter an amount with at most 2 decimals')
+export const moneyIn = z.string().trim().regex(MONEY_RE, 'Enter a non-negative amount with at most 2 decimals')
+export const signedMoneyIn = z.string().trim().regex(SIGNED_MONEY_RE, 'Enter an amount with at most 2 decimals')
 // Non-negative and contains a non-zero digit => strictly positive (no float math).
 export const positiveMoneyIn = moneyIn.refine((v) => /[1-9]/.test(v), 'Amount must be greater than 0')
 /** km, litres: non-negative, 2 decimals, max 10 integer digits. */
@@ -86,17 +80,23 @@ export const tripBellaInput = z.object({
 })
 
 const tripBase = {
-  customerId: id,
-  truckId: id,
-  driverId: id,
   tripDate: isoDate,
   distance: measureIn,
   startPoint: text(200),
   endPoint: text(200),
 }
 
+/** Either an existing record id or a new record to create inline with the trip. */
+const refOrNew = <T extends z.ZodTypeAny>(input: T) =>
+  z
+    .object({ id: id.optional(), new: input.optional() })
+    .refine((v) => (v.id ? !v.new : !!v.new), 'Pick an existing record or fill in a new one')
+
 export const tripCreate = z.object({
   ...tripBase,
+  customer: refOrNew(customerInput),
+  truck: refOrNew(truckInput),
+  driver: refOrNew(driverInput),
   includeBrickCost: z.boolean().default(true),
   bella: tripBellaInput,
   costs: tripCostInput,
@@ -106,17 +106,22 @@ export const tripCreate = z.object({
 export const tripUpdate = z
   .object({
     ...tripBase,
+    customerId: id.optional(),
+    truckId: id.optional(),
+    driverId: id.optional(),
     includeBrickCost: z.boolean(),
     bella: tripBellaInput.partial(),
-    costs: z.object({
-      diesel: moneyIn,
-      adblue: moneyIn,
-      royalty: moneyIn,
-      tollTaxes: moneyIn,
-      driverSalary: moneyIn,
-      miscellaneous: moneyIn,
-      labour: moneyIn,
-    }).partial(),
+    costs: z
+      .object({
+        diesel: moneyIn,
+        adblue: moneyIn,
+        royalty: moneyIn,
+        tollTaxes: moneyIn,
+        driverSalary: moneyIn,
+        miscellaneous: moneyIn,
+        labour: moneyIn,
+      })
+      .partial(),
   })
   .partial()
 
@@ -175,14 +180,20 @@ export const tripListQuery = pageQuery
   .and(tripFilters)
 
 /** Filters for truck/driver/customer lists (created_at range, IST). */
-export const masterFilters = z.object({ ...dateRange, q: z.string().trim().max(100).optional() }).refine(checkRange, rangeMsg)
+export const masterFilters = z
+  .object({ ...dateRange, q: z.string().trim().max(100).optional() })
+  .refine(checkRange, rangeMsg)
 export const masterListQuery = pageQuery
   .omit({ q: true })
   .extend({ sort: z.enum(['createdAt', 'name', 'tripCount']).default('createdAt') })
   .and(masterFilters)
 export const truckListQuery = pageQuery
   .omit({ q: true })
-  .extend({ sort: z.enum(['createdAt', 'registrationNumber', 'distanceTraveled', 'dieselCost', 'tripCount']).default('createdAt') })
+  .extend({
+    sort: z
+      .enum(['createdAt', 'registrationNumber', 'distanceTraveled', 'dieselCost', 'tripCount'])
+      .default('createdAt'),
+  })
   .and(masterFilters)
 
 /** Bella / trip-cost lists are dated by their trip's trip_date. */
@@ -203,7 +214,13 @@ export const paymentListQuery = pageQuery
   .and(paymentFilters)
 
 export const monthlyQuery = z
-  .object({ ...dateRange, customerId: id.optional(), truckId: id.optional(), driverId: id.optional(), paymentDue: boolQuery })
+  .object({
+    ...dateRange,
+    customerId: id.optional(),
+    truckId: id.optional(),
+    driverId: id.optional(),
+    paymentDue: boolQuery,
+  })
   .refine(checkRange, rangeMsg)
 
 // ---------------------------------------------------------------------------

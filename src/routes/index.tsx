@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { RequireAuth } from '~/components/RequireAuth'
-import { Badge, Card, Stat } from '~/components/ui'
-import { api, qs } from '~/lib/api'
+import { Badge, Button, Card, Stat } from '~/components/ui'
+import { api } from '~/lib/api'
 import { dateIst, money, monthLabel, qty } from '~/lib/format'
 import type { DashboardDto } from '~/shared/schemas'
 
@@ -24,47 +24,93 @@ function DashboardPage() {
   if (error || !data) return <p className="text-sm text-red-600">Failed to load dashboard. Is the API running?</p>
 
   const { counts, totals, monthly } = data
+  const thisMonth = new Date().toISOString().slice(0, 7)
+  const monthRow = monthly.months.find((m) => m.month === thisMonth)
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">Dashboard</h1>
-        <p className="text-xs text-gray-500">All figures are your own data only.</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-bold">Home</h1>
+          <p className="text-xs text-gray-500">Only your own work is shown here.</p>
+        </div>
+        <Link to="/trips/new">
+          <Button>+ New trip</Button>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Link to="/trips" search={{ paymentDue: 'true' }}>
+          <Stat
+            label="Money to collect"
+            value={money(totals.outstanding)}
+            sub={`${qty(totals.dueTripCount)} trips not fully paid — tap to see`}
+          />
+        </Link>
+        <Link to="/reports">
+          <Stat
+            label="Costs this month"
+            value={monthRow ? money(monthRow.total) : money('0')}
+            sub={monthRow ? `${qty(monthRow.tripCount)} trips this month — tap for reports` : 'No trips this month yet'}
+          />
+        </Link>
+        <Link to="/trips">
+          <Stat label="Trips" value={qty(totals.tripCount)} sub="Tap to see all trips" />
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Link to="/trips"><Stat label="Trips" value={qty(counts.trips)} /></Link>
-        <Link to="/trucks"><Stat label="Trucks" value={qty(counts.trucks)} /></Link>
-        <Link to="/drivers"><Stat label="Drivers" value={qty(counts.drivers)} /></Link>
-        <Link to="/customers"><Stat label="Customers" value={qty(counts.customers)} /></Link>
-        <Link to="/bella"><Stat label="Bella records" value={qty(counts.bellas)} /></Link>
+        <Link to="/trips">
+          <Stat label="Trips" value={qty(counts.trips)} />
+        </Link>
+        <Link to="/trucks">
+          <Stat label="Trucks" value={qty(counts.trucks)} />
+        </Link>
+        <Link to="/drivers">
+          <Stat label="Drivers" value={qty(counts.drivers)} />
+        </Link>
+        <Link to="/customers">
+          <Stat label="Customers" value={qty(counts.customers)} />
+        </Link>
+        <Link to="/bella">
+          <Stat label="Brick loads" value={qty(counts.bellas)} />
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Revenue" value={money(totals.revenue)} sub={`${qty(totals.tripCount)} trips`} />
-        <Stat label="Total trip expenses" value={money(totals.totalTripCost)} />
+        <Stat label="Total sales" value={money(totals.revenue)} sub={`${qty(totals.tripCount)} trips`} />
+        <Stat label="Total trip costs" value={money(totals.totalTripCost)} />
         <Stat
-          label="Net margin (calculated)"
+          label="Profit (worked out)"
           value={money(totals.netMarginCalculated)}
-          sub={totals.overriddenCount ? `${totals.overriddenCount} manually overridden` : undefined}
+          sub={totals.overriddenCount ? `${totals.overriddenCount} fixed by hand` : undefined}
           tone={Number(totals.netMarginCalculated) >= 0 ? 'pos' : 'neg'}
         />
         <Stat
-          label="Net margin (effective)"
+          label="Final profit"
           value={money(totals.netMarginEffective)}
-          sub="used in reports & exports"
+          sub="used in reports & downloads"
           tone={Number(totals.netMarginEffective) >= 0 ? 'pos' : 'neg'}
         />
-        <Stat label="Outstanding payments" value={money(totals.outstanding)} sub={`${qty(totals.dueTripCount)} trips due`} />
-        <Stat label="Amount received" value={money(totals.amountReceived)} />
-        <Stat label="Brick cost included" value={money(totals.brickCost)} />
-        <Stat label="Revenue − costs − brick cost" value={money(totals.netMarginCalculated)} sub="margin formula" />
+        <Link to="/trips" search={{ paymentDue: 'true' }}>
+          <Stat label="Money to collect" value={money(totals.outstanding)} sub={`${qty(totals.dueTripCount)} trips`} />
+        </Link>
+        <Stat label="Money received" value={money(totals.amountReceived)} />
+        <Stat label="Brick buying cost" value={money(totals.brickCost)} />
+        <Stat label="Profit maths" value={money(totals.netMarginCalculated)} sub="sales − costs − brick cost" />
       </div>
 
-      <Card title={`Monthly expenses ${monthly.from ? `(${dateIst(monthly.from)} – ${dateIst(monthly.to)})` : ''}`}>
+      <Card title={`Monthly costs ${monthly.from ? `(${dateIst(monthly.from)} – ${dateIst(monthly.to)})` : ''}`}>
         <MonthlyTable months={monthly.months} />
       </Card>
 
-      <Card title="Recent trips" right={<Link to="/trips" className="text-xs text-indigo-600 dark:text-indigo-400">View all →</Link>}>
+      <Card
+        title="Recent trips"
+        right={
+          <Link to="/trips" className="text-xs text-indigo-600 dark:text-indigo-400">
+            View all →
+          </Link>
+        }
+      >
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
@@ -72,31 +118,41 @@ function DashboardPage() {
                 <th className="px-3 py-2">Date</th>
                 <th className="px-3 py-2">Customer</th>
                 <th className="px-3 py-2">Truck</th>
-                <th className="px-3 py-2 text-right">Revenue</th>
-                <th className="px-3 py-2 text-right">Expenses</th>
-                <th className="px-3 py-2 text-right">Net margin</th>
-                <th className="px-3 py-2 text-center">Payment</th>
+                <th className="px-3 py-2 text-right">Sale</th>
+                <th className="px-3 py-2 text-right">Costs</th>
+                <th className="px-3 py-2 text-right">Profit</th>
+                <th className="px-3 py-2 text-center">Paid?</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {data.recentTrips.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-400">
-                    No trips yet — <Link to="/trips/new" className="text-indigo-600 dark:text-indigo-400">create your first trip</Link>
+                    No trips yet —{' '}
+                    <Link to="/trips/new" className="text-indigo-600 dark:text-indigo-400">
+                      create your first trip
+                    </Link>
                   </td>
                 </tr>
               ) : (
                 data.recentTrips.map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
-                    <td className="px-3 py-2"><Link className="text-indigo-600 dark:text-indigo-400" to="/trips/$id" params={{ id: t.id }}>{dateIst(t.tripDate)}</Link></td>
+                    <td className="px-3 py-2">
+                      <Link className="text-indigo-600 dark:text-indigo-400" to="/trips/$id" params={{ id: t.id }}>
+                        {dateIst(t.tripDate)}
+                      </Link>
+                    </td>
                     <td className="px-3 py-2">{t.customer.name}</td>
                     <td className="px-3 py-2">{t.truck.registrationNumber}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{money(t.financials.revenue)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{money(t.financials.totalTripCost)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">
-                      {money(t.financials.netMarginEffective)} {t.financials.isMarginOverridden && <Badge tone="amber">manual</Badge>}
+                      {money(t.financials.netMarginEffective)}{' '}
+                      {t.financials.isMarginOverridden && <Badge tone="amber">fixed by hand</Badge>}
                     </td>
-                    <td className="px-3 py-2 text-center">{t.paymentDue ? <Badge tone="red">due</Badge> : <Badge tone="green">paid</Badge>}</td>
+                    <td className="px-3 py-2 text-center">
+                      {t.paymentDue ? <Badge tone="red">to collect</Badge> : <Badge tone="green">paid</Badge>}
+                    </td>
                   </tr>
                 ))
               )}
@@ -118,17 +174,21 @@ export function MonthlyTable({ months }: { months: DashboardDto['monthly']['mont
             <th className="px-3 py-2 text-right">Diesel</th>
             <th className="px-3 py-2 text-right">AdBlue</th>
             <th className="px-3 py-2 text-right">Royalty</th>
-            <th className="px-3 py-2 text-right">Tolls & taxes</th>
-            <th className="px-3 py-2 text-right">Driver salary</th>
-            <th className="px-3 py-2 text-right">Misc</th>
+            <th className="px-3 py-2 text-right">Tolls</th>
+            <th className="px-3 py-2 text-right">Driver pay</th>
+            <th className="px-3 py-2 text-right">Other</th>
             <th className="px-3 py-2 text-right">Labour</th>
             <th className="px-3 py-2 text-right">Total</th>
-            <th className="px-3 py-2 text-right">Δ prev</th>
+            <th className="px-3 py-2 text-right">Change</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-gray-800 tabular-nums">
           {months.length === 0 ? (
-            <tr><td colSpan={10} className="px-3 py-6 text-center text-sm text-gray-400">No trips in this period</td></tr>
+            <tr>
+              <td colSpan={10} className="px-3 py-6 text-center text-sm text-gray-400">
+                No trips in this period
+              </td>
+            </tr>
           ) : (
             months.map((m) => (
               <tr key={m.month}>
@@ -142,7 +202,13 @@ export function MonthlyTable({ months }: { months: DashboardDto['monthly']['mont
                 <td className="px-3 py-2 text-right">{money(m.labour)}</td>
                 <td className="px-3 py-2 text-right font-semibold">{money(m.total)}</td>
                 <td className="px-3 py-2 text-right">
-                  {m.changeFromPrevious === null ? '—' : <span className={Number(m.changeFromPrevious) >= 0 ? 'text-emerald-600' : 'text-red-600'}>{money(m.changeFromPrevious)}</span>}
+                  {m.changeFromPrevious === null ? (
+                    '—'
+                  ) : (
+                    <span className={Number(m.changeFromPrevious) >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+                      {money(m.changeFromPrevious)}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))

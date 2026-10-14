@@ -40,7 +40,9 @@ const col = (key: string, type: Column['type'], header = key): Column => ({ key,
 const created = col('created_at_ist', 'datetime')
 
 /** Generic created_at/id cursor batching for Prisma models. */
-async function* cursorBatches<T extends { id: string }>(fetch: (args: { take: number; skip?: number; cursor?: { id: string } }) => Promise<T[]>) {
+async function* cursorBatches<T extends { id: string }>(
+  fetch: (args: { take: number; skip?: number; cursor?: { id: string } }) => Promise<T[]>,
+) {
   let cursor: string | undefined
   for (;;) {
     const rows = await fetch({ take: BATCH_SIZE, ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}) })
@@ -99,7 +101,13 @@ export function driversDataset(db: DbOrTx, userId: string, f: z.infer<typeof mas
       for await (const batch of cursorBatches((p) =>
         db.driver.findMany({ where, orderBy: ASC, include: { _count: { select: { trips: true } } }, ...p }),
       )) {
-        yield batch.map((d) => ({ id: d.id, name: d.name, phone: d.phone, trip_count: d._count.trips, created_at_ist: d.createdAt }))
+        yield batch.map((d) => ({
+          id: d.id,
+          name: d.name,
+          phone: d.phone,
+          trip_count: d._count.trips,
+          created_at_ist: d.createdAt,
+        }))
       }
     },
   }
@@ -387,11 +395,25 @@ export function summaryDataset(totals: TripTotalsDto, f: Partial<TripFilters>): 
 }
 
 export function monthlyDataset(m: MonthlyDto): Dataset {
-  const money6 = ['diesel', 'adblue', 'royalty', 'toll_taxes', 'driver_salary', 'miscellaneous', 'labour', 'total'] as const
+  const money6 = [
+    'diesel',
+    'adblue',
+    'royalty',
+    'toll_taxes',
+    'driver_salary',
+    'miscellaneous',
+    'labour',
+    'total',
+  ] as const
   return {
     name: 'monthly_summary',
     sheet: 'Monthly summary',
-    columns: [col('month', 'text'), col('trip_count', 'int'), ...money6.map((k) => col(k, 'money')), col('change_from_previous', 'money')],
+    columns: [
+      col('month', 'text'),
+      col('trip_count', 'int'),
+      ...money6.map((k) => col(k, 'money')),
+      col('change_from_previous', 'money'),
+    ],
     rows: async function* () {
       yield m.months.map((r) => ({
         month: r.month,

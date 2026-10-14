@@ -68,12 +68,17 @@ export function toErrorResponse(err: unknown): { status: ContentfulStatusCode; b
     // Database-level guards (unique, FK, CHECK). Services check these first to
     // return precise messages; these mappings cover races.
     if (err.code === 'P2002') {
-      return { status: 409, body: { error: { code: 'DUPLICATE', message: 'A record with these values already exists' } } }
+      return {
+        status: 409,
+        body: { error: { code: 'DUPLICATE', message: 'A record with these values already exists' } },
+      }
     }
     if (err.code === 'P2003') {
       return {
         status: 409,
-        body: { error: { code: 'IN_USE', message: 'The record is referenced by other records or a reference is invalid' } },
+        body: {
+          error: { code: 'IN_USE', message: 'The record is referenced by other records or a reference is invalid' },
+        },
       }
     }
     if (err.code === 'P2025') {

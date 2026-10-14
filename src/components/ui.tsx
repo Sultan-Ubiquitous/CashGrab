@@ -9,7 +9,10 @@ export function Button({
   size = 'md',
   className,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'danger' | 'subtle'; size?: 'sm' | 'md' }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: 'primary' | 'ghost' | 'danger' | 'subtle'
+  size?: 'sm' | 'md'
+}) {
   return (
     <button
       {...props}
@@ -51,7 +54,13 @@ export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   return <textarea {...props} className={cx(inputCls, props.className)} rows={props.rows ?? 2} />
 }
 
-export function Badge({ tone = 'gray', children }: { tone?: 'gray' | 'green' | 'red' | 'amber' | 'indigo'; children: React.ReactNode }) {
+export function Badge({
+  tone = 'gray',
+  children,
+}: {
+  tone?: 'gray' | 'green' | 'red' | 'amber' | 'indigo'
+  children: React.ReactNode
+}) {
   return (
     <span
       className={cx(
@@ -68,9 +77,24 @@ export function Badge({ tone = 'gray', children }: { tone?: 'gray' | 'green' | '
   )
 }
 
-export function Card({ title, right, children, className }: { title?: string; right?: React.ReactNode; children: React.ReactNode; className?: string }) {
+export function Card({
+  title,
+  right,
+  children,
+  className,
+}: {
+  title?: string
+  right?: React.ReactNode
+  children: React.ReactNode
+  className?: string
+}) {
   return (
-    <section className={cx('rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm', className)}>
+    <section
+      className={cx(
+        'rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm',
+        className,
+      )}
+    >
       {(title || right) && (
         <header className="flex items-center justify-between gap-2 border-b border-gray-100 dark:border-gray-800 px-4 py-3">
           {title ? <h2 className="text-sm font-semibold">{title}</h2> : <span />}
@@ -82,7 +106,17 @@ export function Card({ title, right, children, className }: { title?: string; ri
   )
 }
 
-export function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'pos' | 'neg' }) {
+export function Stat({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string
+  value: string
+  sub?: string
+  tone?: 'pos' | 'neg'
+}) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
       <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
@@ -101,10 +135,22 @@ export function Stat({ label, value, sub, tone }: { label: string; value: string
 }
 
 export function Spinner() {
-  return <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-indigo-600" />
+  return (
+    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-indigo-600" />
+  )
 }
 
-export function Modal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
+export function Modal({
+  open,
+  title,
+  onClose,
+  children,
+}: {
+  open: boolean
+  title: string
+  onClose: () => void
+  children: React.ReactNode
+}) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -125,7 +171,11 @@ export function Modal({ open, title, onClose, children }: { open: boolean; title
 }
 
 export function ErrorNote({ error }: { error: unknown }) {
-  return <div className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs text-red-700 dark:text-red-300">{String((error as Error)?.message ?? error)}</div>
+  return (
+    <div className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+      {String((error as Error)?.message ?? error)}
+    </div>
+  )
 }
 
 export function EmptyRow({ colSpan, children = 'No records found' }: { colSpan: number; children?: React.ReactNode }) {

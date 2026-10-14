@@ -24,14 +24,16 @@ export function customerWhere(userId: string, f: z.infer<typeof masterFilters>):
   return {
     userId,
     createdAt: createdAtRange(f.from, f.to),
-    ...(f.q
-      ? { OR: [{ name: insensitive(f.q) }, { location: insensitive(f.q) }, { phone: { contains: f.q } }] }
-      : {}),
+    ...(f.q ? { OR: [{ name: insensitive(f.q) }, { location: insensitive(f.q) }, { phone: { contains: f.q } }] } : {}),
   }
 }
 
-export function customerOrder(sort: z.infer<typeof masterListQuery>['sort'], order: 'asc' | 'desc'): Prisma.CustomerOrderByWithRelationInput[] {
-  const primary: Prisma.CustomerOrderByWithRelationInput = sort === 'tripCount' ? { trips: { _count: order } } : { [sort]: order }
+export function customerOrder(
+  sort: z.infer<typeof masterListQuery>['sort'],
+  order: 'asc' | 'desc',
+): Prisma.CustomerOrderByWithRelationInput[] {
+  const primary: Prisma.CustomerOrderByWithRelationInput =
+    sort === 'tripCount' ? { trips: { _count: order } } : { [sort]: order }
   return [primary, { id: order }]
 }
 

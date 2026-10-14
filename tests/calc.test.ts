@@ -30,7 +30,15 @@ describe('money helpers', () => {
 })
 
 describe('trip formulas (single source of truth)', () => {
-  const cost = { diesel: '1500.25', adblue: '100', royalty: '200', tollTaxes: '50', driverSalary: '500', miscellaneous: '49.75', labour: '100' }
+  const cost = {
+    diesel: '1500.25',
+    adblue: '100',
+    royalty: '200',
+    tollTaxes: '50',
+    driverSalary: '500',
+    miscellaneous: '49.75',
+    labour: '100',
+  }
 
   it('revenue = quantity × selling price', () => {
     expect(money(tripRevenue(1000, '8.00'))).toBe('8000.00')
@@ -46,8 +54,28 @@ describe('trip formulas (single source of truth)', () => {
   })
 
   it('net margin = revenue − brick cost − total trip cost', () => {
-    expect(money(netMarginCalculated({ brickQuantity: 1000, brickCostPrice: '5.00', brickSellingPrice: '8.00', includeBrickCost: true, cost }))).toBe('500.00')
-    expect(money(netMarginCalculated({ brickQuantity: 1000, brickCostPrice: '5.00', brickSellingPrice: '8.00', includeBrickCost: false, cost }))).toBe('5500.00')
+    expect(
+      money(
+        netMarginCalculated({
+          brickQuantity: 1000,
+          brickCostPrice: '5.00',
+          brickSellingPrice: '8.00',
+          includeBrickCost: true,
+          cost,
+        }),
+      ),
+    ).toBe('500.00')
+    expect(
+      money(
+        netMarginCalculated({
+          brickQuantity: 1000,
+          brickCostPrice: '5.00',
+          brickSellingPrice: '8.00',
+          includeBrickCost: false,
+          cost,
+        }),
+      ),
+    ).toBe('5500.00')
   })
 
   it('override wins over calculated; missing override falls back', () => {
@@ -64,7 +92,15 @@ describe('trip formulas (single source of truth)', () => {
 
   it('financials dto exposes calculated, override and effective distinctly', () => {
     const f = tripFinancials(
-      { brickQuantity: 1000, brickCostPrice: '5.00', brickSellingPrice: '8.00', includeBrickCost: true, cost, netMarginCalculated: '500.00', netMarginOverride: '650.00' },
+      {
+        brickQuantity: 1000,
+        brickCostPrice: '5.00',
+        brickSellingPrice: '8.00',
+        includeBrickCost: true,
+        cost,
+        netMarginCalculated: '500.00',
+        netMarginOverride: '650.00',
+      },
       '3000.00',
     )
     expect(f).toMatchObject({
@@ -126,6 +162,6 @@ describe('export cell hygiene', () => {
     expect(csvCell('money', null)).toBe('')
     expect(xlsxCell('money', '-1234.50')).toBe(-1234.5)
     expect(xlsxCell('bool', false)).toBe(false)
-    expect(xlsxCell('text', '=HYPERLINK("x")')).toBe("'=HYPERLINK(\"x\")")
+    expect(xlsxCell('text', '=HYPERLINK("x")')).toBe('\'=HYPERLINK("x")')
   })
 })

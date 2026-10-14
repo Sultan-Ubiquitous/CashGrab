@@ -35,7 +35,12 @@ function PaymentsPage() {
   })
 
   const columns: Column<PaymentRowDto>[] = [
-    { key: 'paidOn', header: 'Paid on', render: (p) => <span className="font-medium">{dateIst(p.paidOn)}</span> },
+    {
+      key: 'paidOn',
+      header: 'Paid on',
+      sortable: true,
+      render: (p) => <span className="font-medium">{dateIst(p.paidOn)}</span>,
+    },
     {
       key: 'tripDate',
       header: 'Trip',
@@ -45,15 +50,24 @@ function PaymentsPage() {
         </Link>
       ),
     },
-    { key: 'amount', header: 'Amount', align: 'right', render: (p) => money(p.amount) },
+    { key: 'amount', header: 'Amount', sortable: true, align: 'right', render: (p) => money(p.amount) },
     { key: 'note', header: 'Note', render: (p) => p.note ?? '—' },
     {
       key: 'actions',
       header: '',
       render: (p) => (
         <div className="flex justify-end gap-1">
-          <Button size="sm" variant="subtle" onClick={() => setEditing(p)}>Edit</Button>
-          <Button size="sm" variant="ghost" className="text-red-600" onClick={() => confirm('Delete this payment?') && del.mutate(p.id)}>Delete</Button>
+          <Button size="sm" variant="subtle" onClick={() => setEditing(p)}>
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-red-600"
+            onClick={() => confirm('Delete this payment?') && del.mutate(p.id)}
+          >
+            Delete
+          </Button>
         </div>
       ),
     },
@@ -62,8 +76,10 @@ function PaymentsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">Payments</h1>
-        <p className="text-xs text-gray-500">Instalments recorded against trips. Amount received per trip is the sum of these.</p>
+        <h1 className="text-xl font-bold">Money in</h1>
+        <p className="text-xs text-gray-500">
+          Money received for trips. Each trip's received money is the total of these lines.
+        </p>
       </div>
       {del.error ? <div className="text-xs text-red-600">{errMessage(del.error)}</div> : null}
       <Card>
@@ -76,9 +92,25 @@ function PaymentsPage() {
           onState={patch}
           toolbar={
             <>
-              <Field label="Search"><Input placeholder="Note or customer…" value={state.q} onChange={(e) => patch({ q: e.target.value })} className="w-44" /></Field>
-              <Field label="Paid from"><Input type="date" value={state.from} onChange={(e) => patch({ from: e.target.value })} className="w-36" /></Field>
-              <Field label="to"><Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" /></Field>
+              <Field label="Search">
+                <Input
+                  placeholder="Note or customer…"
+                  value={state.q}
+                  onChange={(e) => patch({ q: e.target.value })}
+                  className="w-44"
+                />
+              </Field>
+              <Field label="Paid from">
+                <Input
+                  type="date"
+                  value={state.from}
+                  onChange={(e) => patch({ from: e.target.value })}
+                  className="w-36"
+                />
+              </Field>
+              <Field label="to">
+                <Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" />
+              </Field>
             </>
           }
         />
@@ -104,14 +136,44 @@ function PaymentModal({ payment, onClose }: { payment: PaymentRowDto; onClose: (
   })
   return (
     <Modal open title="Edit payment" onClose={onClose}>
-      <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); update.mutate() }}>
-        {error ? <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</div> : null}
-        <Field label="Amount (₹)"><Input required inputMode="decimal" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} /></Field>
-        <Field label="Paid on"><Input required type="date" value={form.paidOn} onChange={(e) => setForm((f) => ({ ...f, paidOn: e.target.value }))} /></Field>
-        <Field label="Note"><TextArea value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} /></Field>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          update.mutate()
+        }}
+      >
+        {error ? (
+          <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            {error}
+          </div>
+        ) : null}
+        <Field label="Amount (₹)">
+          <Input
+            required
+            inputMode="decimal"
+            value={form.amount}
+            onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+          />
+        </Field>
+        <Field label="Paid on">
+          <Input
+            required
+            type="date"
+            value={form.paidOn}
+            onChange={(e) => setForm((f) => ({ ...f, paidOn: e.target.value }))}
+          />
+        </Field>
+        <Field label="Note">
+          <TextArea value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
+        </Field>
         <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="subtle" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={update.isPending}>Save</Button>
+          <Button type="button" variant="subtle" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={update.isPending}>
+            Save
+          </Button>
         </div>
       </form>
     </Modal>

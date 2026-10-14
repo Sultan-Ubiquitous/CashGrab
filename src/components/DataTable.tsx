@@ -61,12 +61,21 @@ export function DataTable<T extends { id: string }>({
               {columns.map((c) => (
                 <th
                   key={c.key}
-                  className={cx('px-3 py-2 font-medium', c.align === 'right' && 'text-right', c.align === 'center' && 'text-center')}
+                  className={cx(
+                    'px-3 py-2 font-medium',
+                    c.align === 'right' && 'text-right',
+                    c.align === 'center' && 'text-center',
+                  )}
                 >
                   {c.sortable && onState && state ? (
-                    <button className="inline-flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-200" onClick={() => setSort(c.key)}>
+                    <button
+                      className="inline-flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-200"
+                      onClick={() => setSort(c.key)}
+                    >
                       {c.header}
-                      <span className="text-[9px]">{state.sort === c.key ? (state.order === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                      <span className="text-[9px]">
+                        {state.sort === c.key ? (state.order === 'asc' ? '▲' : '▼') : '⇅'}
+                      </span>
                     </button>
                   ) : (
                     c.header
@@ -90,7 +99,11 @@ export function DataTable<T extends { id: string }>({
                   {columns.map((c) => (
                     <td
                       key={c.key}
-                      className={cx('px-3 py-2 align-middle', c.align === 'right' && 'text-right tabular-nums', c.align === 'center' && 'text-center')}
+                      className={cx(
+                        'px-3 py-2 align-middle',
+                        c.align === 'right' && 'text-right tabular-nums',
+                        c.align === 'center' && 'text-center',
+                      )}
                     >
                       {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? '—')}
                     </td>
@@ -107,10 +120,20 @@ export function DataTable<T extends { id: string }>({
             {page.total} record{page.total === 1 ? '' : 's'} · page {page.page} / {page.totalPages}
           </span>
           <div className="flex gap-2">
-            <Button variant="subtle" size="sm" disabled={page.page <= 1} onClick={() => onState({ page: page.page - 1 })}>
+            <Button
+              variant="subtle"
+              size="sm"
+              disabled={page.page <= 1}
+              onClick={() => onState({ page: page.page - 1 })}
+            >
               ← Prev
             </Button>
-            <Button variant="subtle" size="sm" disabled={page.page >= page.totalPages} onClick={() => onState({ page: page.page + 1 })}>
+            <Button
+              variant="subtle"
+              size="sm"
+              disabled={page.page >= page.totalPages}
+              onClick={() => onState({ page: page.page + 1 })}
+            >
               Next →
             </Button>
           </div>

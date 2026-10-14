@@ -16,7 +16,13 @@ const TX_OPTS = { maxWait: 10_000, timeout: 20_000 } as const
  * Validates the new payment total against the trip's revenue and re-syncs
  * trip.payment_due. Must run inside a transaction holding the trip row lock.
  */
-async function applyAndSync(tx: Tx, userId: string, tripId: string, excludePaymentId: string | null, newAmount: string | null) {
+async function applyAndSync(
+  tx: Tx,
+  userId: string,
+  tripId: string,
+  excludePaymentId: string | null,
+  newAmount: string | null,
+) {
   const trip = await tx.trip.findFirstOrThrow({
     where: { id: tripId, userId },
     select: { brickQuantity: true, brickSellingPrice: true },
@@ -29,11 +35,9 @@ async function applyAndSync(tx: Tx, userId: string, tripId: string, excludePayme
   const others = dec(agg._sum.amount)
   const total = newAmount === null ? others : others.plus(dec(newAmount))
   if (total.greaterThan(revenue)) {
-    throw new AppError(
-      'OVERPAYMENT',
-      `Payment exceeds the amount remaining (${money(revenue.minus(others))})`,
-      { amountRemaining: money(revenue.minus(others)) },
-    )
+    throw new AppError('OVERPAYMENT', `Payment exceeds the amount remaining (${money(revenue.minus(others))})`, {
+      amountRemaining: money(revenue.minus(others)),
+    })
   }
   await tx.trip.update({
     where: { id_userId: { id: tripId, userId } },
@@ -59,7 +63,10 @@ export async function addPayment(db: Db, userId: string, tripId: string, input: 
 }
 
 async function findPayment(tx: Tx, userId: string, paymentId: string) {
-  const p = await tx.payment.findFirst({ where: { id: paymentId, userId }, select: { id: true, tripId: true, amount: true } })
+  const p = await tx.payment.findFirst({
+    where: { id: paymentId, userId },
+    select: { id: true, tripId: true, amount: true },
+  })
   if (!p) throw notFound('Payment')
   return p
 }
@@ -114,7 +121,10 @@ export function toPaymentRowDto(p: PaymentRow): PaymentRowDto {
 
 /** Payments are dated by paid_on. */
 export function paymentWhere(userId: string, f: z.infer<typeof paymentFilters>): Prisma.PaymentWhereInput {
-  const paidOn = f.from || f.to ? { ...(f.from ? { gte: dateOnlyToDb(f.from) } : {}), ...(f.to ? { lte: dateOnlyToDb(f.to) } : {}) } : undefined
+  const paidOn =
+    f.from || f.to
+      ? { ...(f.from ? { gte: dateOnlyToDb(f.from) } : {}), ...(f.to ? { lte: dateOnlyToDb(f.to) } : {}) }
+      : undefined
   return {
     userId,
     ...(paidOn ? { paidOn } : {}),
@@ -124,7 +134,10 @@ export function paymentWhere(userId: string, f: z.infer<typeof paymentFilters>):
   }
 }
 
-export function paymentOrder(sort: z.infer<typeof paymentListQuery>['sort'], order: 'asc' | 'desc'): Prisma.PaymentOrderByWithRelationInput[] {
+export function paymentOrder(
+  sort: z.infer<typeof paymentListQuery>['sort'],
+  order: 'asc' | 'desc',
+): Prisma.PaymentOrderByWithRelationInput[] {
   return [{ [sort]: order }, { createdAt: order }, { id: order }]
 }
 

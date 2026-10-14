@@ -14,11 +14,16 @@ function client() {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     })
     const sc = res.headers.getSetCookie?.() ?? []
-    if (sc.length) cookie = [...new Set([...cookie.split('; ').filter(Boolean), ...sc.map((c) => c.split(';')[0])])].join('; ')
+    if (sc.length)
+      cookie = [...new Set([...cookie.split('; ').filter(Boolean), ...sc.map((c) => c.split(';')[0])])].join('; ')
     const buf = Buffer.from(await res.arrayBuffer())
     const text = buf.toString('utf8')
     let json = null
-    try { json = JSON.parse(text) } catch {}
+    try {
+      json = JSON.parse(text)
+    } catch {
+      /* binary body (zip/xlsx) or non-JSON response */
+    }
     const okStatus = typeof expect === 'number' ? res.status === expect : expect.includes(res.status)
     if (!okStatus) {
       throw new Error(`${method} ${path} -> ${res.status} (expected ${expect})\n${text.slice(0, 500)}`)
@@ -27,45 +32,154 @@ function client() {
   }
 }
 
-const assert = (cond, msg) => { if (!cond) throw new Error('ASSERT: ' + msg) }
-const eq = (a, b, msg) => { if (a !== b) throw new Error(`ASSERT ${msg}: ${a} !== ${b}`) }
+const assert = (cond, msg) => {
+  if (!cond) throw new Error('ASSERT: ' + msg)
+}
+const eq = (a, b, msg) => {
+  if (a !== b) throw new Error(`ASSERT ${msg}: ${a} !== ${b}`)
+}
 
-const A = client(), B = client()
+const A = client(),
+  B = client()
 const uniq = Date.now()
-const aEmail = `a${uniq}@test.dev`, bEmail = `b${uniq}@test.dev`
+const aEmail = `a${uniq}@test.dev`,
+  bEmail = `b${uniq}@test.dev`
 
 // --- sign up both users
-await A('POST', '/api/auth/sign-up/email', { name: 'User A', email: aEmail, password: 'password1', username: `a${uniq}` })
-await B('POST', '/api/auth/sign-up/email', { name: 'User B', email: bEmail, password: 'password1', username: `b${uniq}` })
+await A('POST', '/api/auth/sign-up/email', {
+  name: 'User A',
+  email: aEmail,
+  password: 'password1',
+  username: `a${uniq}`,
+})
+await B('POST', '/api/auth/sign-up/email', {
+  name: 'User B',
+  email: bEmail,
+  password: 'password1',
+  username: `b${uniq}`,
+})
+
+// --- profile: update name/phone/username; taken username rejected
+const me1 = await A('GET', '/api/me')
+assert(me1.json.username === `a${uniq}`, 'me username')
+const meUpd = await A('PUT', '/api/me', { name: 'User A2', phone: '+91 98765 43210', username: `a${uniq}x` })
+assert(
+  meUpd.status === 200 && meUpd.json.phone === '+91 98765 43210' && meUpd.json.username === `a${uniq}x`,
+  'me update',
+)
+const meTaken = await A('PUT', '/api/me', { username: `b${uniq}` }, 422)
+assert(meTaken.status === 422 && meTaken.json.error.code === 'VALIDATION_ERROR', 'taken username rejected')
 
 // --- A creates masters
 const reg = 'MH 12 AB ' + String(uniq % 10000).padStart(4, '0')
-const truck = (await A('POST', '/api/trucks', { registrationNumber: reg, dieselCost: '50000.50', dieselLiters: '4000', distanceTraveled: '24000' }, 201)).json
+const truck = (
+  await A(
+    'POST',
+    '/api/trucks',
+    { registrationNumber: reg, dieselCost: '50000.50', dieselLiters: '4000', distanceTraveled: '24000' },
+    201,
+  )
+).json
 eq(truck.mileageKmPerLiter, '6.00', 'mileage')
 eq(truck.costPerKm, '2.08', 'cost/km')
 eq(truck.tripCount, 0, 'truck tripCount')
 const driver = (await A('POST', '/api/drivers', { name: 'Raju', phone: '+919876543210' }, 201)).json
-const customer = (await A('POST', '/api/customers', { name: 'Bella Depot', phone: '0221234567', location: 'Kiln Road, Nashik' }, 201)).json
+const customer = (
+  await A('POST', '/api/customers', { name: 'Bella Depot', phone: '0221234567', location: 'Kiln Road, Nashik' }, 201)
+).json
 
 // --- isolation: B cannot see or use A's records
 await B('GET', `/api/trucks/${truck.id}`, undefined, 404)
-const crossRef = await B('POST', '/api/trips', {
-  customerId: customer.id, truckId: truck.id, driverId: driver.id,
-  tripDate: '2026-10-05', distance: '120.5', startPoint: 'Kiln', endPoint: 'Depot',
-  includeBrickCost: true,
-  bella: { source: 'Nashik kiln', quantity: 100, costPrice: '5.00', sellingPrice: '8.00', sourceOwnership: false },
-  costs: { diesel: '100' },
-}, 422)
+const crossRef = await B(
+  'POST',
+  '/api/trips',
+  {
+    customer: { id: customer.id },
+    truck: { id: truck.id },
+    driver: { id: driver.id },
+    tripDate: '2026-10-05',
+    distance: '120.5',
+    startPoint: 'Kiln',
+    endPoint: 'Depot',
+    includeBrickCost: true,
+    bella: { source: 'Nashik kiln', quantity: 100, costPrice: '5.00', sellingPrice: '8.00', sourceOwnership: false },
+    costs: { diesel: '100' },
+  },
+  422,
+)
 eq(crossRef.json.error.code, 'INVALID_REFERENCE', 'cross-user reference rejected')
 
+// --- inline creation: new customer/truck/driver saved with the trip in one go
+const inlineTrip = (
+  await A(
+    'POST',
+    '/api/trips',
+    {
+      customer: { new: { name: 'Inline Depot', phone: null, location: 'Igatpuri' } },
+      truck: { new: { registrationNumber: reg + '-IN', dieselCost: '0', dieselLiters: '0', distanceTraveled: '0' } },
+      driver: { new: { name: 'Inline Driver', phone: '+919999999999' } },
+      tripDate: '2026-10-09',
+      distance: '50',
+      startPoint: 'Kiln',
+      endPoint: 'Depot',
+      includeBrickCost: true,
+      bella: { source: 'Inline kiln', quantity: 200, costPrice: '5.00', sellingPrice: '8.00', sourceOwnership: false },
+      costs: { diesel: '500' },
+    },
+    201,
+  )
+).json
+eq(inlineTrip.customer.name, 'Inline Depot', 'inline customer')
+eq(inlineTrip.truck.registrationNumber, reg + '-IN', 'inline truck')
+eq(inlineTrip.driver.name, 'Inline Driver', 'inline driver')
+eq(inlineTrip.financials.revenue, '1600.00', 'inline revenue')
+const dupInline = await A(
+  'POST',
+  '/api/trips',
+  {
+    customer: { id: customer.id },
+    truck: { new: { registrationNumber: reg + '-IN', dieselCost: '0', dieselLiters: '0', distanceTraveled: '0' } },
+    driver: { id: driver.id },
+    tripDate: '2026-10-09',
+    distance: '50',
+    startPoint: 'Kiln',
+    endPoint: 'Depot',
+    bella: { source: 'x', quantity: 10, costPrice: '1', sellingPrice: '2', sourceOwnership: false },
+    costs: {},
+  },
+  409,
+)
+eq(dupInline.json.error.code, 'DUPLICATE', 'inline duplicate truck rejected')
+await A('DELETE', `/api/trips/${inlineTrip.id}`, undefined, 204)
+
 // --- A creates a trip (third-party bricks => brick cost included)
-const trip = (await A('POST', '/api/trips', {
-  customerId: customer.id, truckId: truck.id, driverId: driver.id,
-  tripDate: '2026-10-05', distance: '120.50', startPoint: 'Kiln', endPoint: 'Depot',
-  includeBrickCost: true,
-  bella: { source: 'Nashik kiln', quantity: 1000, costPrice: '5.00', sellingPrice: '8.00', sourceOwnership: false },
-  costs: { diesel: '1500.25', adblue: '100', royalty: '200', tollTaxes: '50', driverSalary: '500', miscellaneous: '49.75', labour: '100' },
-}, 201)).json
+const trip = (
+  await A(
+    'POST',
+    '/api/trips',
+    {
+      customer: { id: customer.id },
+      truck: { id: truck.id },
+      driver: { id: driver.id },
+      tripDate: '2026-10-05',
+      distance: '120.50',
+      startPoint: 'Kiln',
+      endPoint: 'Depot',
+      includeBrickCost: true,
+      bella: { source: 'Nashik kiln', quantity: 1000, costPrice: '5.00', sellingPrice: '8.00', sourceOwnership: false },
+      costs: {
+        diesel: '1500.25',
+        adblue: '100',
+        royalty: '200',
+        tollTaxes: '50',
+        driverSalary: '500',
+        miscellaneous: '49.75',
+        labour: '100',
+      },
+    },
+    201,
+  )
+).json
 eq(trip.financials.revenue, '8000.00', 'revenue')
 eq(trip.financials.brickCost, '5000.00', 'brick cost')
 eq(trip.financials.totalTripCost, '2500.00', 'total trip cost')
@@ -83,27 +197,51 @@ eq(edited.financials.netMarginEffective, '650.00', 'effective still overridden')
 eq(edited.startPoint, 'Kiln 2', 'start updated')
 
 // --- own-kiln trip allows skipping brick cost; third-party refuses
-const ownTrip = (await A('POST', '/api/trips', {
-  customerId: customer.id, truckId: truck.id, driverId: driver.id,
-  tripDate: '2026-09-20', distance: '80', startPoint: 'Own kiln', endPoint: 'Depot',
-  includeBrickCost: false,
-  bella: { source: 'Own kiln', quantity: 500, costPrice: '4.00', sellingPrice: '7.50', sourceOwnership: true },
-  costs: { diesel: '800' },
-}, 201)).json
+const ownTrip = (
+  await A(
+    'POST',
+    '/api/trips',
+    {
+      customer: { id: customer.id },
+      truck: { id: truck.id },
+      driver: { id: driver.id },
+      tripDate: '2026-09-20',
+      distance: '80',
+      startPoint: 'Own kiln',
+      endPoint: 'Depot',
+      includeBrickCost: false,
+      bella: { source: 'Own kiln', quantity: 500, costPrice: '4.00', sellingPrice: '7.50', sourceOwnership: true },
+      costs: { diesel: '800' },
+    },
+    201,
+  )
+).json
 eq(ownTrip.financials.revenue, '3750.00', 'own revenue')
 eq(ownTrip.financials.brickCost, '0.00', 'brick cost skipped')
 eq(ownTrip.financials.netMarginCalculated, '2950.00', 'own margin')
-const skipRejected = await A('POST', '/api/trips', {
-  customerId: customer.id, truckId: truck.id, driverId: driver.id,
-  tripDate: '2026-09-21', distance: '80', startPoint: 'X', endPoint: 'Y',
-  includeBrickCost: false,
-  bella: { source: 'Bought kiln', quantity: 10, costPrice: '4.00', sellingPrice: '7.50', sourceOwnership: false },
-  costs: {},
-}, 422)
+const skipRejected = await A(
+  'POST',
+  '/api/trips',
+  {
+    customer: { id: customer.id },
+    truck: { id: truck.id },
+    driver: { id: driver.id },
+    tripDate: '2026-09-21',
+    distance: '80',
+    startPoint: 'X',
+    endPoint: 'Y',
+    includeBrickCost: false,
+    bella: { source: 'Bought kiln', quantity: 10, costPrice: '4.00', sellingPrice: '7.50', sourceOwnership: false },
+    costs: {},
+  },
+  422,
+)
 eq(skipRejected.json.error.code, 'BRICK_COST_SKIP_NOT_ALLOWED', 'skip only for own kiln')
 
 // --- payments: partial, overpay rejected, full clears paymentDue
-const p1 = (await A('POST', `/api/trips/${trip.id}/payments`, { amount: '3000.00', paidOn: '2026-10-08', note: 'advance' }, 201)).json
+const p1 = (
+  await A('POST', `/api/trips/${trip.id}/payments`, { amount: '3000.00', paidOn: '2026-10-08', note: 'advance' }, 201)
+).json
 eq(p1.financials.amountReceived, '3000.00', 'received')
 eq(p1.financials.amountRemaining, '5000.00', 'remaining')
 eq(p1.paymentDue, true, 'still due')

@@ -34,7 +34,10 @@ export function truckWhere(userId: string, f: z.infer<typeof masterFilters>): Pr
   }
 }
 
-export function truckOrder(sort: z.infer<typeof truckListQuery>['sort'], order: 'asc' | 'desc'): Prisma.TruckOrderByWithRelationInput[] {
+export function truckOrder(
+  sort: z.infer<typeof truckListQuery>['sort'],
+  order: 'asc' | 'desc',
+): Prisma.TruckOrderByWithRelationInput[] {
   const primary: Prisma.TruckOrderByWithRelationInput =
     sort === 'tripCount' ? { trips: { _count: order } } : { [sort]: order }
   return [primary, { id: order }]
@@ -45,7 +48,8 @@ async function assertUniqueRegistration(db: DbOrTx, userId: string, reg: string,
     where: { userId, registrationNumber: reg, ...(exceptId ? { NOT: { id: exceptId } } : {}) },
     select: { id: true },
   })
-  if (clash) throw new AppError('DUPLICATE', `A truck with registration ${reg} already exists`, { field: 'registrationNumber' })
+  if (clash)
+    throw new AppError('DUPLICATE', `A truck with registration ${reg} already exists`, { field: 'registrationNumber' })
 }
 
 export async function listTrucks(db: DbOrTx, userId: string, q: z.infer<typeof truckListQuery>) {

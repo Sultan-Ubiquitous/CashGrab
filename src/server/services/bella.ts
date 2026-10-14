@@ -27,7 +27,13 @@ export function toBellaDto(b: BellaRow): BellaDto {
 
 /** Bella records are dated by their trip's trip_date (same basis as reports). */
 export function bellaWhere(userId: string, f: z.infer<typeof bellaFilters>): Prisma.BellaWhereInput {
-  const tripDate = f.from || f.to ? { ...(f.from ? { gte: new Date(`${f.from}T00:00:00Z`) } : {}), ...(f.to ? { lte: new Date(`${f.to}T00:00:00Z`) } : {}) } : undefined
+  const tripDate =
+    f.from || f.to
+      ? {
+          ...(f.from ? { gte: new Date(`${f.from}T00:00:00Z`) } : {}),
+          ...(f.to ? { lte: new Date(`${f.to}T00:00:00Z`) } : {}),
+        }
+      : undefined
   return {
     userId,
     ...(tripDate ? { trip: { is: { tripDate } } } : {}),
@@ -36,8 +42,12 @@ export function bellaWhere(userId: string, f: z.infer<typeof bellaFilters>): Pri
   }
 }
 
-export function bellaOrder(sort: z.infer<typeof bellaListQuery>['sort'], order: 'asc' | 'desc'): Prisma.BellaOrderByWithRelationInput[] {
-  const primary: Prisma.BellaOrderByWithRelationInput = sort === 'tripDate' ? { trip: { tripDate: order } } : { [sort]: order }
+export function bellaOrder(
+  sort: z.infer<typeof bellaListQuery>['sort'],
+  order: 'asc' | 'desc',
+): Prisma.BellaOrderByWithRelationInput[] {
+  const primary: Prisma.BellaOrderByWithRelationInput =
+    sort === 'tripDate' ? { trip: { tripDate: order } } : { [sort]: order }
   return [primary, { id: order }]
 }
 

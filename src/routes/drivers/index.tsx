@@ -31,17 +31,36 @@ function DriversPage() {
   })
 
   const columns: Column<DriverDto>[] = [
-    { key: 'name', header: 'Name', render: (d) => <span className="font-medium">{d.name}</span> },
+    { key: 'name', header: 'Name', sortable: true, render: (d) => <span className="font-medium">{d.name}</span> },
     { key: 'phone', header: 'Phone' },
-    { key: 'tripCount', header: 'Trips', align: 'center', render: (d) => <Link className="text-indigo-600 dark:text-indigo-400" to="/trips" search={{ driverId: d.id }}>{d.tripCount}</Link> },
-    { key: 'createdAt', header: 'Added', render: (d) => dateTimeIst(d.createdAt) },
+    {
+      key: 'tripCount',
+      header: 'Trips',
+      sortable: true,
+      align: 'center',
+      render: (d) => (
+        <Link className="text-indigo-600 dark:text-indigo-400" to="/trips" search={{ driverId: d.id }}>
+          {d.tripCount}
+        </Link>
+      ),
+    },
+    { key: 'createdAt', header: 'Added', sortable: true, render: (d) => dateTimeIst(d.createdAt) },
     {
       key: 'actions',
       header: '',
       render: (d) => (
         <div className="flex justify-end gap-1">
-          <Button size="sm" variant="subtle" onClick={() => setEditing(d)}>Edit</Button>
-          <Button size="sm" variant="ghost" className="text-red-600" onClick={() => confirm(`Delete ${d.name}?`) && del.mutate(d.id)}>Delete</Button>
+          <Button size="sm" variant="subtle" onClick={() => setEditing(d)}>
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-red-600"
+            onClick={() => confirm(`Delete ${d.name}?`) && del.mutate(d.id)}
+          >
+            Delete
+          </Button>
         </div>
       ),
     },
@@ -64,9 +83,25 @@ function DriversPage() {
           onState={patch}
           toolbar={
             <>
-              <Field label="Search"><Input placeholder="Name or phone…" value={state.q} onChange={(e) => patch({ q: e.target.value })} className="w-44" /></Field>
-              <Field label="Added from"><Input type="date" value={state.from} onChange={(e) => patch({ from: e.target.value })} className="w-36" /></Field>
-              <Field label="to"><Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" /></Field>
+              <Field label="Search">
+                <Input
+                  placeholder="Name or phone…"
+                  value={state.q}
+                  onChange={(e) => patch({ q: e.target.value })}
+                  className="w-44"
+                />
+              </Field>
+              <Field label="Added from">
+                <Input
+                  type="date"
+                  value={state.from}
+                  onChange={(e) => patch({ from: e.target.value })}
+                  className="w-36"
+                />
+              </Field>
+              <Field label="to">
+                <Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" />
+              </Field>
             </>
           }
         />
@@ -98,13 +133,40 @@ function DriverModal({ driver, onClose }: { driver: DriverDto | null; onClose: (
   })
   return (
     <Modal open title={driver ? 'Edit driver' : 'Add driver'} onClose={onClose}>
-      <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); driver ? update.mutate() : save.mutate() }}>
-        {error ? <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</div> : null}
-        <Field label="Name"><Input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></Field>
-        <Field label="Phone"><Input required value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91…" /></Field>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (driver) {
+            update.mutate()
+          } else {
+            save.mutate()
+          }
+        }}
+      >
+        {error ? (
+          <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            {error}
+          </div>
+        ) : null}
+        <Field label="Name">
+          <Input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+        </Field>
+        <Field label="Phone">
+          <Input
+            required
+            value={form.phone}
+            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+            placeholder="+91…"
+          />
+        </Field>
         <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="subtle" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={save.isPending || update.isPending}>{driver ? 'Save' : 'Create'}</Button>
+          <Button type="button" variant="subtle" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={save.isPending || update.isPending}>
+            {driver ? 'Save' : 'Create'}
+          </Button>
         </div>
       </form>
     </Modal>

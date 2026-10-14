@@ -16,15 +16,20 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   const text = await res.text()
-  let json: any
+  let json: unknown
   try {
     json = text ? JSON.parse(text) : null
   } catch {
     throw new ApiError(res.status, 'INTERNAL_ERROR', `Unexpected response from ${path}`)
   }
   if (!res.ok) {
-    const e = json?.error
-    throw new ApiError(res.status, e?.code ?? 'INTERNAL_ERROR', e?.message ?? `Request failed (${res.status})`, e?.details)
+    const e = (json as { error?: { code?: string; message?: string; details?: unknown } } | null)?.error
+    throw new ApiError(
+      res.status,
+      e?.code ?? 'INTERNAL_ERROR',
+      e?.message ?? `Request failed (${res.status})`,
+      e?.details,
+    )
   }
   return json as T
 }

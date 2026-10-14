@@ -1,4 +1,9 @@
-const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const inr = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
 const num = new Intl.NumberFormat('en-IN')
 
 export const money = (v: string | null | undefined) => (v === null || v === undefined ? '—' : inr.format(Number(v)))

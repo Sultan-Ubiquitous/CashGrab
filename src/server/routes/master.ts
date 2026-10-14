@@ -45,7 +45,11 @@ export const trucksRoutes = new Hono<AppEnv>()
   .get('/:id/trips', v('param', idParam), v('query', tripHistoryQuery), async (c) => {
     const { id } = c.req.valid('param')
     await trucks.getTruck(c.var.db, c.var.userId, id)
-    return ok(c, pageOut(tripRowOut), await trips.listTrips(c.var.db, c.var.userId, { ...c.req.valid('query'), truckId: id }))
+    return ok(
+      c,
+      pageOut(tripRowOut),
+      await trips.listTrips(c.var.db, c.var.userId, { ...c.req.valid('query'), truckId: id }),
+    )
   })
 
 export const driversRoutes = new Hono<AppEnv>()
@@ -68,7 +72,11 @@ export const driversRoutes = new Hono<AppEnv>()
   .get('/:id/trips', v('param', idParam), v('query', tripHistoryQuery), async (c) => {
     const { id } = c.req.valid('param')
     await drivers.getDriver(c.var.db, c.var.userId, id)
-    return ok(c, pageOut(tripRowOut), await trips.listTrips(c.var.db, c.var.userId, { ...c.req.valid('query'), driverId: id }))
+    return ok(
+      c,
+      pageOut(tripRowOut),
+      await trips.listTrips(c.var.db, c.var.userId, { ...c.req.valid('query'), driverId: id }),
+    )
   })
 
 export const customersRoutes = new Hono<AppEnv>()
@@ -82,7 +90,11 @@ export const customersRoutes = new Hono<AppEnv>()
     ok(c, customerOut, await customers.getCustomer(c.var.db, c.var.userId, c.req.valid('param').id)),
   )
   .patch('/:id', v('param', idParam), v('json', customerUpdate), async (c) =>
-    ok(c, customerOut, await customers.updateCustomer(c.var.db, c.var.userId, c.req.valid('param').id, c.req.valid('json'))),
+    ok(
+      c,
+      customerOut,
+      await customers.updateCustomer(c.var.db, c.var.userId, c.req.valid('param').id, c.req.valid('json')),
+    ),
   )
   .delete('/:id', v('param', idParam), async (c) => {
     await customers.deleteCustomer(c.var.db, c.var.userId, c.req.valid('param').id)
@@ -91,5 +103,9 @@ export const customersRoutes = new Hono<AppEnv>()
   .get('/:id/trips', v('param', idParam), v('query', tripHistoryQuery), async (c) => {
     const { id } = c.req.valid('param')
     await customers.getCustomer(c.var.db, c.var.userId, id)
-    return ok(c, pageOut(tripRowOut), await trips.listTrips(c.var.db, c.var.userId, { ...c.req.valid('query'), customerId: id }))
+    return ok(
+      c,
+      pageOut(tripRowOut),
+      await trips.listTrips(c.var.db, c.var.userId, { ...c.req.valid('query'), customerId: id }),
+    )
   })

@@ -1,12 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import {
-  bellaListQuery,
-  masterListQuery,
-  paymentListQuery,
-  tripFilters,
-  tripListQuery,
-} from '~/shared/schemas'
+import { bellaListQuery, masterListQuery, paymentListQuery, tripFilters, tripListQuery } from '~/shared/schemas'
 import { todayIst } from '../lib/dates'
 import type { AppEnv, Ctx } from '../http'
 import { v } from '../http'
@@ -39,12 +33,7 @@ const MIME = {
  * generation finishes (or fails / the client disconnects), never when the
  * route handler returns. Back-pressure keeps memory flat for large exports.
  */
-function streamFile(
-  c: Ctx,
-  filename: string,
-  mime: string,
-  produce: (sink: Sink) => Promise<void>,
-) {
+function streamFile(c: Ctx, filename: string, mime: string, produce: (sink: Sink) => Promise<void>) {
   let cancelled = false
   const pending: (() => void)[] = []
   const stream = new ReadableStream<Uint8Array>({
@@ -119,10 +108,7 @@ export const exportRoutes = new Hono<AppEnv>()
   .get('/report', v('query', reportQuery), async (c) => {
     const { format, ...filters } = c.req.valid('query')
     const { db, userId } = c.var
-    const [totals, monthly] = await Promise.all([
-      tripTotals(db, userId, filters),
-      monthlySummary(db, userId, filters),
-    ])
+    const [totals, monthly] = await Promise.all([tripTotals(db, userId, filters), monthlySummary(db, userId, filters)])
     const datasets: Dataset[] = [
       summaryDataset(totals, filters),
       monthlyDataset(monthly),

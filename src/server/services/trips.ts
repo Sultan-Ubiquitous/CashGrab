@@ -1,7 +1,10 @@
 import type { z } from 'zod'
 import { Prisma } from '~/generated/prisma/client'
 import type {
+  customerInput,
+  driverInput,
   marginOverrideInput,
+  truckInput,
   tripCreate,
   tripListQuery,
   tripUpdate,
@@ -24,6 +27,9 @@ import {
   type TripCostValues,
 } from './calc'
 import { listTripRows, toTripRowDto, type TripSort } from './tripQuery'
+import { createCustomer } from './customers'
+import { createDriver } from './drivers'
+import { createTruck } from './trucks'
 
 const TX_OPTS = { maxWait: 10_000, timeout: 20_000 } as const
 
@@ -39,8 +45,26 @@ export async function lockTrip(tx: Tx, userId: string, tripId: string) {
   if (rows.length === 0) throw notFound('Trip')
 }
 
+/** Creates a master record inline with a trip (the zod contract guarantees one is present). */
+async function createInlineCustomer(tx: Tx, userId: string, input: z.infer<typeof customerInput> | undefined) {
+  if (!input) throw new AppError('VALIDATION_ERROR', 'Pick an existing customer or fill in a new one')
+  return (await createCustomer(tx, userId, input)).id
+}
+async function createInlineTruck(tx: Tx, userId: string, input: z.infer<typeof truckInput> | undefined) {
+  if (!input) throw new AppError('VALIDATION_ERROR', 'Pick an existing truck or fill in a new one')
+  return (await createTruck(tx, userId, input)).id
+}
+async function createInlineDriver(tx: Tx, userId: string, input: z.infer<typeof driverInput> | undefined) {
+  if (!input) throw new AppError('VALIDATION_ERROR', 'Pick an existing driver or fill in a new one')
+  return (await createDriver(tx, userId, input)).id
+}
+
 /** Every referenced record must belong to the authenticated user. */
-async function assertRefsOwned(tx: Tx, userId: string, refs: { customerId?: string; truckId?: string; driverId?: string }) {
+async function assertRefsOwned(
+  tx: Tx,
+  userId: string,
+  refs: { customerId?: string; truckId?: string; driverId?: string },
+) {
   const [customer, truck, driver] = await Promise.all([
     refs.customerId ? tx.customer.findFirst({ where: { id: refs.customerId, userId }, select: { id: true } }) : true,
     refs.truckId ? tx.truck.findFirst({ where: { id: refs.truckId, userId }, select: { id: true } }) : true,
@@ -132,7 +156,10 @@ export function toTripDetailDto(t: TripDetailRow): TripDetailDto {
     },
     costs: {
       id: t.tripCost.id,
-      ...(Object.fromEntries(TRIP_COST_FIELDS.map((k) => [k, money(cost[k])])) as Record<(typeof TRIP_COST_FIELDS)[number], string>),
+      ...(Object.fromEntries(TRIP_COST_FIELDS.map((k) => [k, money(cost[k])])) as Record<
+        (typeof TRIP_COST_FIELDS)[number],
+        string
+      >),
       total: money(totalTripCost(cost)),
     },
     payments: t.payments.map((p) => ({
@@ -173,7 +200,16 @@ export async function listTrips(db: Db | Tx, userId: string, q: z.infer<typeof t
 export async function createTrip(db: Db, userId: string, input: z.infer<typeof tripCreate>) {
   assertBrickCostRule(input.includeBrickCost, input.bella.sourceOwnership)
   const id = await db.$transaction(async (tx) => {
-    await assertRefsOwned(tx, userId, input)
+    // Existing references must belong to the user; inline records are
+    // created here so the whole trip succeeds or fails together.
+    await assertRefsOwned(tx, userId, {
+      customerId: input.customer.id,
+      truckId: input.truck.id,
+      driverId: input.driver.id,
+    })
+    const customerId = input.customer.id ?? (await createInlineCustomer(tx, userId, input.customer.new))
+    const truckId = input.truck.id ?? (await createInlineTruck(tx, userId, input.truck.new))
+    const driverId = input.driver.id ?? (await createInlineDriver(tx, userId, input.driver.new))
     const bella = await tx.bella.create({
       data: {
         userId,
@@ -196,9 +232,9 @@ export async function createTrip(db: Db, userId: string, input: z.infer<typeof t
     const trip = await tx.trip.create({
       data: {
         userId,
-        customerId: input.customerId,
-        truckId: input.truckId,
-        driverId: input.driverId,
+        customerId,
+        truckId,
+        driverId,
         bellaId: bella.id,
         tripCostId: cost.id,
         tripDate: dateOnlyToDb(input.tripDate),
@@ -225,7 +261,10 @@ export async function createTrip(db: Db, userId: string, input: z.infer<typeof t
 export async function updateTrip(db: Db, userId: string, tripId: string, input: z.infer<typeof tripUpdate>) {
   await db.$transaction(async (tx) => {
     await lockTrip(tx, userId, tripId)
-    const t = await tx.trip.findFirstOrThrow({ where: { id: tripId, userId }, include: { tripCost: true, bella: true } })
+    const t = await tx.trip.findFirstOrThrow({
+      where: { id: tripId, userId },
+      include: { tripCost: true, bella: true },
+    })
     await assertRefsOwned(tx, userId, input)
 
     const b = input.bella ?? {}
@@ -295,7 +334,12 @@ export async function updateTrip(db: Db, userId: string, tripId: string, input: 
   return getTrip(db, userId, tripId)
 }
 
-export async function setMarginOverride(db: Db, userId: string, tripId: string, input: z.infer<typeof marginOverrideInput>) {
+export async function setMarginOverride(
+  db: Db,
+  userId: string,
+  tripId: string,
+  input: z.infer<typeof marginOverrideInput>,
+) {
   const res = await db.trip.updateMany({
     where: { id: tripId, userId },
     data: { netMarginOverride: input.netMarginOverride },
@@ -307,7 +351,10 @@ export async function setMarginOverride(db: Db, userId: string, tripId: string, 
 export async function deleteTrip(db: Db, userId: string, tripId: string) {
   await db.$transaction(async (tx) => {
     await lockTrip(tx, userId, tripId)
-    const t = await tx.trip.findFirstOrThrow({ where: { id: tripId, userId }, select: { bellaId: true, tripCostId: true } })
+    const t = await tx.trip.findFirstOrThrow({
+      where: { id: tripId, userId },
+      select: { bellaId: true, tripCostId: true },
+    })
     // Payments cascade with the trip; the 1:1 bella and trip_cost go with it.
     await tx.trip.delete({ where: { id_userId: { id: tripId, userId } } })
     await tx.bella.delete({ where: { id_userId: { id: t.bellaId, userId } } })

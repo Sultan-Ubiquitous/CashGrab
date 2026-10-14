@@ -44,14 +44,23 @@ export const tripsRoutes = new Hono<AppEnv>()
     ok(c, tripDetailOut, await trips.updateTrip(c.var.db, c.var.userId, c.req.valid('param').id, c.req.valid('json'))),
   )
   .put('/:id/margin-override', v('param', idParam), v('json', marginOverrideInput), async (c) =>
-    ok(c, tripDetailOut, await trips.setMarginOverride(c.var.db, c.var.userId, c.req.valid('param').id, c.req.valid('json'))),
+    ok(
+      c,
+      tripDetailOut,
+      await trips.setMarginOverride(c.var.db, c.var.userId, c.req.valid('param').id, c.req.valid('json')),
+    ),
   )
   .delete('/:id', v('param', idParam), async (c) => {
     await trips.deleteTrip(c.var.db, c.var.userId, c.req.valid('param').id)
     return c.body(null, 204)
   })
   .post('/:id/payments', v('param', idParam), v('json', paymentInput), async (c) =>
-    ok(c, tripDetailOut, await payments.addPayment(c.var.db, c.var.userId, c.req.valid('param').id, c.req.valid('json')), 201),
+    ok(
+      c,
+      tripDetailOut,
+      await payments.addPayment(c.var.db, c.var.userId, c.req.valid('param').id, c.req.valid('json')),
+      201,
+    ),
   )
 
 export const paymentsRoutes = new Hono<AppEnv>()
@@ -59,7 +68,11 @@ export const paymentsRoutes = new Hono<AppEnv>()
     ok(c, pageOut(paymentRowOut), await payments.listPayments(c.var.db, c.var.userId, c.req.valid('query'))),
   )
   .patch('/:id', v('param', idParam), v('json', paymentUpdate), async (c) =>
-    ok(c, tripDetailOut, await payments.updatePayment(c.var.db, c.var.userId, c.req.valid('param').id, c.req.valid('json'))),
+    ok(
+      c,
+      tripDetailOut,
+      await payments.updatePayment(c.var.db, c.var.userId, c.req.valid('param').id, c.req.valid('json')),
+    ),
   )
   .delete('/:id', v('param', idParam), async (c) =>
     ok(c, tripDetailOut, await payments.deletePayment(c.var.db, c.var.userId, c.req.valid('param').id)),

@@ -21,8 +21,12 @@ export function driverWhere(userId: string, f: z.infer<typeof masterFilters>): P
   }
 }
 
-export function driverOrder(sort: z.infer<typeof masterListQuery>['sort'], order: 'asc' | 'desc'): Prisma.DriverOrderByWithRelationInput[] {
-  const primary: Prisma.DriverOrderByWithRelationInput = sort === 'tripCount' ? { trips: { _count: order } } : { [sort]: order }
+export function driverOrder(
+  sort: z.infer<typeof masterListQuery>['sort'],
+  order: 'asc' | 'desc',
+): Prisma.DriverOrderByWithRelationInput[] {
+  const primary: Prisma.DriverOrderByWithRelationInput =
+    sort === 'tripCount' ? { trips: { _count: order } } : { [sort]: order }
   return [primary, { id: order }]
 }
 

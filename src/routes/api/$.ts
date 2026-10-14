@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 // Every /api/* request is handled by the Hono app (src/server/app.ts).
 // The import is dynamic so server code never reaches the client bundle.
 async function handle({ request }: { request: Request }) {
-  const { default: app } = await import('~/server/app')
+  const { app } = await import('~/server/app')
   return app.fetch(request)
 }
 

@@ -32,14 +32,38 @@ export const meRoutes = new Hono<AppEnv>()
   })
   .put('/', v('json', meUpdate), async (c) => {
     const input = c.req.valid('json')
-    const res = await c.var.auth.api.updateUser({
-      headers: c.req.raw.headers,
-      body: {
-        name: input.name,
-        ...(input.phone !== undefined ? { phone: input.phone } : {}),
-        ...(input.username !== undefined ? { username: input.username } : {}),
-      },
+    const headers = c.req.raw.headers
+    const session = await c.var.auth.api.getSession({ headers })
+    if (!session) throw new AppError('UNAUTHORIZED', 'Sign in required')
+
+    // `username` is owned by the Better Auth username plugin, which validates
+    // format, length and uniqueness on /update-user. APIErrors there are
+    // mapped to a uniform 422 below.
+    try {
+      await c.var.auth.api.updateUser({
+        headers,
+        body: {
+          name: input.name,
+          ...(input.phone !== undefined ? { phone: input.phone } : {}),
+          ...(input.username !== undefined ? { username: input.username } : {}),
+        },
+      })
+    } catch (e) {
+      if (e instanceof AppError) {
+        throw e
+      }
+      const msg = e instanceof Error ? e.message : 'Update failed'
+      throw new AppError('VALIDATION_ERROR', msg, { cause: 'better-auth' })
+    }
+    const fresh = await c.var.auth.api.getSession({ headers })
+    const u = fresh?.user as typeof session.user & { username?: string | null; phone?: string | null }
+    if (!u) throw new AppError('UNAUTHORIZED', 'Sign in required')
+    return ok(c, meOut, {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      username: u.username ?? null,
+      phone: u.phone ?? null,
+      image: u.image ?? null,
     })
-    if (!res) throw new AppError('UNAUTHORIZED', 'Sign in required')
-    return c.json(res)
   })

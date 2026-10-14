@@ -31,18 +31,37 @@ function CustomersPage() {
   })
 
   const columns: Column<CustomerDto>[] = [
-    { key: 'name', header: 'Name', render: (c) => <span className="font-medium">{c.name}</span> },
+    { key: 'name', header: 'Name', sortable: true, render: (c) => <span className="font-medium">{c.name}</span> },
     { key: 'phone', header: 'Phone', render: (c) => c.phone ?? '—' },
     { key: 'location', header: 'Location' },
-    { key: 'tripCount', header: 'Trips', align: 'center', render: (c) => <Link className="text-indigo-600 dark:text-indigo-400" to="/trips" search={{ customerId: c.id }}>{c.tripCount}</Link> },
-    { key: 'createdAt', header: 'Added', render: (c) => dateTimeIst(c.createdAt) },
+    {
+      key: 'tripCount',
+      header: 'Trips',
+      sortable: true,
+      align: 'center',
+      render: (c) => (
+        <Link className="text-indigo-600 dark:text-indigo-400" to="/trips" search={{ customerId: c.id }}>
+          {c.tripCount}
+        </Link>
+      ),
+    },
+    { key: 'createdAt', header: 'Added', sortable: true, render: (c) => dateTimeIst(c.createdAt) },
     {
       key: 'actions',
       header: '',
       render: (c) => (
         <div className="flex justify-end gap-1">
-          <Button size="sm" variant="subtle" onClick={() => setEditing(c)}>Edit</Button>
-          <Button size="sm" variant="ghost" className="text-red-600" onClick={() => confirm(`Delete ${c.name}?`) && del.mutate(c.id)}>Delete</Button>
+          <Button size="sm" variant="subtle" onClick={() => setEditing(c)}>
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-red-600"
+            onClick={() => confirm(`Delete ${c.name}?`) && del.mutate(c.id)}
+          >
+            Delete
+          </Button>
         </div>
       ),
     },
@@ -65,9 +84,25 @@ function CustomersPage() {
           onState={patch}
           toolbar={
             <>
-              <Field label="Search"><Input placeholder="Name, phone, location…" value={state.q} onChange={(e) => patch({ q: e.target.value })} className="w-52" /></Field>
-              <Field label="Added from"><Input type="date" value={state.from} onChange={(e) => patch({ from: e.target.value })} className="w-36" /></Field>
-              <Field label="to"><Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" /></Field>
+              <Field label="Search">
+                <Input
+                  placeholder="Name, phone, location…"
+                  value={state.q}
+                  onChange={(e) => patch({ q: e.target.value })}
+                  className="w-52"
+                />
+              </Field>
+              <Field label="Added from">
+                <Input
+                  type="date"
+                  value={state.from}
+                  onChange={(e) => patch({ from: e.target.value })}
+                  className="w-36"
+                />
+              </Field>
+              <Field label="to">
+                <Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" />
+              </Field>
             </>
           }
         />
@@ -79,10 +114,15 @@ function CustomersPage() {
 
 function CustomerModal({ customer, onClose }: { customer: CustomerDto | null; onClose: () => void }) {
   const qc = useQueryClient()
-  const [form, setForm] = React.useState({ name: customer?.name ?? '', phone: customer?.phone ?? '', location: customer?.location ?? '' })
+  const [form, setForm] = React.useState({
+    name: customer?.name ?? '',
+    phone: customer?.phone ?? '',
+    location: customer?.location ?? '',
+  })
   const [error, setError] = React.useState('')
   const save = useMutation({
-    mutationFn: () => api('POST', '/customers', { ...form, phone: form.phone || null }) as unknown as Promise<CustomerDto>,
+    mutationFn: () =>
+      api('POST', '/customers', { ...form, phone: form.phone || null }) as unknown as Promise<CustomerDto>,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['customers'] })
       onClose()
@@ -99,14 +139,46 @@ function CustomerModal({ customer, onClose }: { customer: CustomerDto | null; on
   })
   return (
     <Modal open title={customer ? 'Edit customer' : 'Add customer'} onClose={onClose}>
-      <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); customer ? update.mutate() : save.mutate() }}>
-        {error ? <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</div> : null}
-        <Field label="Name"><Input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></Field>
-        <Field label="Phone (optional)"><Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91…" /></Field>
-        <Field label="Location"><Input required value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} /></Field>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (customer) {
+            update.mutate()
+          } else {
+            save.mutate()
+          }
+        }}
+      >
+        {error ? (
+          <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            {error}
+          </div>
+        ) : null}
+        <Field label="Name">
+          <Input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+        </Field>
+        <Field label="Phone (optional)">
+          <Input
+            value={form.phone}
+            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+            placeholder="+91…"
+          />
+        </Field>
+        <Field label="Location">
+          <Input
+            required
+            value={form.location}
+            onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+          />
+        </Field>
         <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="subtle" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={save.isPending || update.isPending}>{customer ? 'Save' : 'Create'}</Button>
+          <Button type="button" variant="subtle" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={save.isPending || update.isPending}>
+            {customer ? 'Save' : 'Create'}
+          </Button>
         </div>
       </form>
     </Modal>

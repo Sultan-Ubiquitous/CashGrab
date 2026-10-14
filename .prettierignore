@@ -2,3 +2,7 @@
 pnpm-lock.yaml
 routeTree.gen.ts
 worker-configuration.d.ts
+src/generated
+dist
+.wrangler
+.output

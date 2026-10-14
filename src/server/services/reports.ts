@@ -58,7 +58,10 @@ export async function monthlySummary(db: DbOrTx, userId: string, f: Partial<Trip
     const row: MonthlyRowDto = {
       month: m,
       tripCount: Number(r?.trip_count ?? 0),
-      ...(Object.fromEntries(TRIP_COST_FIELDS.map((k) => [k, money(r?.[SNAKE[k]] ?? 0)])) as Record<(typeof TRIP_COST_FIELDS)[number], string>),
+      ...(Object.fromEntries(TRIP_COST_FIELDS.map((k) => [k, money(r?.[SNAKE[k]] ?? 0)])) as Record<
+        (typeof TRIP_COST_FIELDS)[number],
+        string
+      >),
       total: money(total),
       changeFromPrevious: prevTotal === null ? null : money(total.minus(prevTotal)),
     }
