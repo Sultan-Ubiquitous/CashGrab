@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "prisma generate && vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "deploy": "pnpm run build && wrangler deploy",
