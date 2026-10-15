@@ -17,12 +17,15 @@ export function Button({
     <button
       {...props}
       className={cx(
-        'inline-flex items-center justify-center gap-1 rounded-md font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none',
-        size === 'sm' ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm',
-        variant === 'primary' && 'bg-indigo-600 text-white hover:bg-indigo-700',
-        variant === 'subtle' && 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700',
-        variant === 'ghost' && 'hover:bg-gray-100 dark:hover:bg-gray-800',
-        variant === 'danger' && 'bg-red-600 text-white hover:bg-red-700',
+        'inline-flex cursor-pointer touch-manipulation select-none items-center justify-center gap-1 rounded-md font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
+        size === 'sm'
+          ? 'min-h-11 px-3 py-2 text-xs md:min-h-8 md:px-2 md:py-1'
+          : 'min-h-11 px-4 py-2.5 text-sm md:min-h-9 md:px-3 md:py-1.5',
+        variant === 'primary' && 'bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-700',
+        variant === 'subtle' &&
+          'bg-gray-100 hover:bg-gray-200 active:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:active:bg-gray-700',
+        variant === 'ghost' && 'hover:bg-gray-100 active:bg-gray-100 dark:hover:bg-gray-800 dark:active:bg-gray-800',
+        variant === 'danger' && 'bg-red-600 text-white hover:bg-red-700 active:bg-red-700',
         className,
       )}
     />
@@ -32,15 +35,15 @@ export function Button({
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-1">
-      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{label}</span>
+      <span className="text-[13px] font-medium text-gray-600 md:text-xs dark:text-gray-400">{label}</span>
       {children}
-      {hint ? <span className="block text-[11px] text-gray-400">{hint}</span> : null}
+      {hint ? <span className="block text-xs text-gray-400 md:text-[11px]">{hint}</span> : null}
     </label>
   )
 }
 
 export const inputCls =
-  'w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500'
+  'w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5 text-base outline-none focus:ring-2 focus:ring-indigo-500 md:px-2 md:py-1.5 md:text-sm'
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cx(inputCls, props.className)} />
@@ -140,6 +143,29 @@ export function Spinner() {
   )
 }
 
+/** Locks body scroll while a modal/sheet is open (restores on close/unmount). */
+export function useBodyLock(locked: boolean) {
+  React.useEffect(() => {
+    if (!locked) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [locked])
+}
+
+function useEscapeToClose(open: boolean, onClose: () => void) {
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+}
+
 export function Modal({
   open,
   title,
@@ -151,11 +177,18 @@ export function Modal({
   onClose: () => void
   children: React.ReactNode
 }) {
+  useBodyLock(open)
+  useEscapeToClose(open, onClose)
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-4"
+      onClick={onClose}
+    >
       <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-xl bg-white p-5 shadow-xl dark:bg-gray-900"
+        role="dialog"
+        aria-modal="true"
+        className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-xl md:max-h-[90vh] md:max-w-2xl md:rounded-xl md:pb-5 dark:bg-gray-900"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -165,6 +198,54 @@ export function Modal({
           </Button>
         </div>
         {children}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Bottom sheet on phones, centered dialog on md and up.
+ * Hand-rolled (no dependencies): backdrop tap and Escape close it, body scroll locks.
+ */
+export function Sheet({
+  open,
+  title,
+  onClose,
+  children,
+  footer,
+}: {
+  open: boolean
+  title: string
+  onClose: () => void
+  children: React.ReactNode
+  footer?: React.ReactNode
+}) {
+  useBodyLock(open)
+  useEscapeToClose(open, onClose)
+  if (!open) return null
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl md:max-w-lg md:rounded-xl dark:bg-gray-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
+            ✕
+          </Button>
+        </div>
+        <div className="filter-sheet overflow-y-auto px-4 py-4">{children}</div>
+        {footer ? (
+          <div className="border-t border-gray-100 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-3 dark:border-gray-800">
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>
   )

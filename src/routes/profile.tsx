@@ -82,8 +82,8 @@ function ProfilePage() {
           <Field label="Phone" hint="Optional contact number for your account.">
             <Input value={form.phone} onChange={set('phone')} placeholder="+91…" />
           </Field>
-          <div className="flex justify-end pt-1">
-            <Button type="submit" disabled={save.isPending}>
+          <div className="flex pt-1 sm:justify-end">
+            <Button type="submit" disabled={save.isPending} className="w-full sm:w-auto">
               {save.isPending ? 'Saving…' : 'Save'}
             </Button>
           </div>

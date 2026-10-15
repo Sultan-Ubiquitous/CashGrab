@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { RequireAuth } from '~/components/RequireAuth'
 import { MonthlyTable } from '~/components/MonthlyTable'
-import { Badge, Button, Card, Stat } from '~/components/ui'
+import { cardCls } from '~/components/DataTable'
+import { Badge, Button, Card, Stat, cx } from '~/components/ui'
 import { api } from '~/lib/api'
 import { dateIst, money, qty, todayIso } from '~/lib/format'
 import type { DashboardDto } from '~/shared/schemas'
@@ -93,12 +94,14 @@ function DashboardPage() {
           sub="used in reports & downloads"
           tone={Number(totals.netMarginEffective) >= 0 ? 'pos' : 'neg'}
         />
-        <Link to="/trips" search={{ paymentDue: 'true' }}>
+        <Link to="/trips" search={{ paymentDue: 'true' }} className="hidden md:contents">
           <Stat label="Money to collect" value={money(totals.outstanding)} sub={`${qty(totals.dueTripCount)} trips`} />
         </Link>
         <Stat label="Money received" value={money(totals.amountReceived)} />
         <Stat label="Brick buying cost" value={money(totals.brickCost)} />
-        <Stat label="Profit maths" value={money(totals.netMarginCalculated)} sub="sales − costs − brick cost" />
+        <div className="hidden md:contents">
+          <Stat label="Profit maths" value={money(totals.netMarginCalculated)} sub="sales − costs − brick cost" />
+        </div>
       </div>
 
       <Card title={`Monthly costs ${monthly.from ? `(${dateIst(monthly.from)} – ${dateIst(monthly.to)})` : ''}`}>
@@ -113,7 +116,52 @@ function DashboardPage() {
           </Link>
         }
       >
-        <div className="overflow-x-auto">
+        <div className="space-y-2 md:hidden">
+          {data.recentTrips.length === 0 ? (
+            <p className="py-6 text-center text-sm text-gray-400">
+              No trips yet —{' '}
+              <Link to="/trips/new" className="text-indigo-600 dark:text-indigo-400">
+                create your first trip
+              </Link>
+            </p>
+          ) : (
+            data.recentTrips.map((t) => (
+              <Link
+                key={t.id}
+                to="/trips/$id"
+                params={{ id: t.id }}
+                className={cx(cardCls, 'block active:bg-gray-50 dark:active:bg-gray-800/60')}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">{dateIst(t.tripDate)}</span>
+                  {t.paymentDue ? <Badge tone="red">to collect</Badge> : <Badge tone="green">paid</Badge>}
+                </div>
+                <div className="mt-1 text-sm">
+                  {t.customer.name} · {t.truck.registrationNumber}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums">
+                  <span className="text-gray-500">
+                    Sale <b className="text-gray-900 dark:text-gray-100">{money(t.financials.revenue)}</b>
+                  </span>
+                  <span className="text-gray-500">
+                    Costs <b className="text-gray-900 dark:text-gray-100">{money(t.financials.totalTripCost)}</b>
+                  </span>
+                  <span
+                    className={
+                      Number(t.financials.netMarginEffective) >= 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }
+                  >
+                    Profit <b>{money(t.financials.netMarginEffective)}</b>
+                    {t.financials.isMarginOverridden ? <Badge tone="amber">fixed by hand</Badge> : null}
+                  </span>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
               <tr>

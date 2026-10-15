@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { RequireAuth } from '~/components/RequireAuth'
 import { MonthlyTable } from '~/components/MonthlyTable'
+import { FilterBar } from '~/components/DataTable'
 import { Badge, Button, Card, Field, Input, Select, Stat } from '~/components/ui'
 import { api, qs } from '~/lib/api'
 import { dateIst, money, qty } from '~/lib/format'
@@ -39,6 +40,8 @@ function ReportsPage() {
   const { customers, trucks, drivers } = useMasterOptions()
 
   const reportQs = qs(params)
+  const filterCount = [f.from, f.to, f.customerId, f.truckId, f.driverId, f.paymentDue].filter((v) => v !== '').length
+  const clearFilters = () => patch({ from: '', to: '', customerId: '', truckId: '', driverId: '', paymentDue: '' })
 
   return (
     <div className="space-y-5">
@@ -48,7 +51,7 @@ function ReportsPage() {
       </div>
 
       <Card title="Filters (change what you see and download)">
-        <div className="flex flex-wrap items-end gap-2">
+        <FilterBar activeCount={filterCount} onClear={clearFilters} sheetTitle="Report filters">
           <Field label="Trip date from">
             <Input type="date" value={f.from} onChange={(e) => patch({ from: e.target.value })} className="w-36" />
           </Field>
@@ -57,32 +60,32 @@ function ReportsPage() {
           </Field>
           <Field label="Customer">
             <Select value={f.customerId} onChange={(e) => patch({ customerId: e.target.value })} className="w-36">
-                  <option value="">All</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
+              <option value="">All</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="Truck">
             <Select value={f.truckId} onChange={(e) => patch({ truckId: e.target.value })} className="w-32">
-                  <option value="">All</option>
-                  {trucks.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.registrationNumber}
-                    </option>
-                  ))}
+              <option value="">All</option>
+              {trucks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.registrationNumber}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="Driver">
             <Select value={f.driverId} onChange={(e) => patch({ driverId: e.target.value })} className="w-32">
-                  <option value="">All</option>
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
+              <option value="">All</option>
+              {drivers.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="Payment">
@@ -92,7 +95,7 @@ function ReportsPage() {
               <option value="false">Paid</option>
             </Select>
           </Field>
-        </div>
+        </FilterBar>
       </Card>
 
       {totals ? (

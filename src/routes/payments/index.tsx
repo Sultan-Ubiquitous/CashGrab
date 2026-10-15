@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { DataTable, useListState, type Column } from '~/components/DataTable'
+import { DataTable, FilterBar, cardCls, useListState, type Column } from '~/components/DataTable'
 import { RequireAuth } from '~/components/RequireAuth'
 import { Button, Card, ErrorNote, Field, Input, Modal, TextArea } from '~/components/ui'
 import { api, errMessage, qs } from '~/lib/api'
@@ -74,6 +74,9 @@ function PaymentsPage() {
     },
   ]
 
+  const filterCount = [state.from, state.to].filter((v) => v !== '' && v !== undefined).length
+  const clearFilters = () => patch({ from: '', to: '' })
+
   return (
     <div className="space-y-4">
       <div>
@@ -91,16 +94,46 @@ function PaymentsPage() {
           error={error}
           state={state}
           onState={patch}
+          card={(p) => (
+            <div className={cardCls}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold">{dateIst(p.paidOn)}</span>
+                <span className="text-sm font-semibold tabular-nums">{money(p.amount)}</span>
+              </div>
+              <Link
+                to="/trips/$id"
+                params={{ id: p.tripId }}
+                className="mt-0.5 block text-sm text-indigo-600 dark:text-indigo-400"
+              >
+                {dateIst(p.tripDate)} · {p.customer.name}
+              </Link>
+              {p.note ? <div className="mt-0.5 truncate text-xs text-gray-500">{p.note}</div> : null}
+              <div className="mt-2 flex gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+                <Button size="sm" variant="subtle" onClick={() => setEditing(p)} className="flex-1">
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="flex-1 text-red-600"
+                  onClick={() => confirm('Delete this payment?') && del.mutate(p.id)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
           toolbar={
-            <>
-              <Field label="Search">
-                <Input
-                  placeholder="Note or customer…"
-                  value={state.q}
-                  onChange={(e) => patch({ q: e.target.value })}
-                  className="w-44"
-                />
-              </Field>
+            <FilterBar
+              searchValue={String(state.q ?? '')}
+              onSearch={(v) => patch({ q: v })}
+              searchPlaceholder="Note or customer…"
+              searchWidth="w-44"
+              activeCount={filterCount}
+              onClear={clearFilters}
+              resultTotal={data?.total}
+              sheetTitle="Filter payments"
+            >
               <Field label="Paid from">
                 <Input
                   type="date"
@@ -112,7 +145,7 @@ function PaymentsPage() {
               <Field label="to">
                 <Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" />
               </Field>
-            </>
+            </FilterBar>
           }
         />
       </Card>
@@ -124,8 +157,7 @@ function PaymentsPage() {
 function PaymentModal({ payment, onClose }: { payment: PaymentRowDto; onClose: () => void }) {
   const [form, setForm] = React.useState({ amount: payment.amount, paidOn: payment.paidOn, note: payment.note ?? '' })
   const { error, pending, update } = useEntitySave({
-    update: (f: typeof form) =>
-      api<TripDetailDto>('PATCH', `/payments/${payment.id}`, { ...f, note: f.note || null }),
+    update: (f: typeof form) => api<TripDetailDto>('PATCH', `/payments/${payment.id}`, { ...f, note: f.note || null }),
     invalidate: [['payments'], ['trip'], ['dashboard']],
     onClose,
   })

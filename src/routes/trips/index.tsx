@@ -2,9 +2,9 @@ import * as React from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
-import { DataTable, useListState, type Column } from '~/components/DataTable'
+import { DataTable, FilterBar, cardCls, useListState, type Column } from '~/components/DataTable'
 import { RequireAuth } from '~/components/RequireAuth'
-import { Badge, Button, Card, Field, Input, Select } from '~/components/ui'
+import { Badge, Button, Card, Field, Input, Select, cx } from '~/components/ui'
 import { api, qs } from '~/lib/api'
 import { dateIst, money, qty } from '~/lib/format'
 import { useMasterOptions } from '~/lib/masterOptions'
@@ -81,6 +81,28 @@ function TripsPage() {
   })
   const { customers, trucks, drivers } = useMasterOptions()
 
+  const filterCount = [
+    state.from,
+    state.to,
+    state.customerId,
+    state.truckId,
+    state.driverId,
+    state.paymentDue,
+    state.sourceOwnership,
+    state.marginOverridden,
+  ].filter((v) => v !== '' && v !== undefined).length
+  const clearFilters = () =>
+    patch({
+      from: '',
+      to: '',
+      customerId: '',
+      truckId: '',
+      driverId: '',
+      paymentDue: '',
+      sourceOwnership: '',
+      marginOverridden: '',
+    })
+
   const columns: Column<TripRowDto>[] = [
     {
       key: 'tripDate',
@@ -148,17 +170,17 @@ function TripsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Trips</h1>
         <div className="flex gap-2">
           <a
-            className="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+            className="hidden min-h-11 items-center rounded-md bg-gray-100 px-3 text-sm font-medium hover:bg-gray-200 active:bg-gray-200 sm:inline-flex md:min-h-9 dark:bg-gray-800 dark:hover:bg-gray-700 dark:active:bg-gray-700"
             href={`/api/exports/trips?format=csv${qs(filterParams)}`}
           >
             Export CSV
           </a>
           <a
-            className="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+            className="hidden min-h-11 items-center rounded-md bg-gray-100 px-3 text-sm font-medium hover:bg-gray-200 active:bg-gray-200 sm:inline-flex md:min-h-9 dark:bg-gray-800 dark:hover:bg-gray-700 dark:active:bg-gray-700"
             href={`/api/exports/trips?format=xlsx${qs(filterParams)}`}
           >
             Export XLSX
@@ -196,16 +218,50 @@ function TripsPage() {
           error={error}
           state={state}
           onState={patch}
+          card={(t) => (
+            <Link
+              to="/trips/$id"
+              params={{ id: t.id }}
+              className={cx(cardCls, 'block active:bg-gray-50 dark:active:bg-gray-800/60')}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold">{dateIst(t.tripDate)}</span>
+                {t.paymentDue ? <Badge tone="red">due</Badge> : <Badge tone="green">paid</Badge>}
+              </div>
+              <div className="mt-1 text-sm">{t.customer.name}</div>
+              <div className="mt-0.5 truncate text-xs text-gray-500">
+                {t.truck.registrationNumber} · {t.startPoint} → {t.endPoint}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-gray-100 pt-2 text-xs tabular-nums dark:border-gray-800">
+                <span className="text-gray-500">
+                  Sale <b className="text-gray-900 dark:text-gray-100">{money(t.financials.revenue)}</b>
+                </span>
+                <span
+                  className={
+                    Number(t.financials.netMarginEffective) >= 0
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }
+                >
+                  Profit <b>{money(t.financials.netMarginEffective)}</b>
+                </span>
+                <span className="text-gray-500">
+                  To collect <b className="text-gray-900 dark:text-gray-100">{money(t.financials.amountRemaining)}</b>
+                </span>
+              </div>
+            </Link>
+          )}
           toolbar={
-            <>
-              <Field label="Search">
-                <Input
-                  placeholder="Customer, truck, driver, places…"
-                  value={state.q}
-                  onChange={(e) => patch({ q: e.target.value })}
-                  className="w-48"
-                />
-              </Field>
+            <FilterBar
+              searchValue={String(state.q ?? '')}
+              onSearch={(v) => patch({ q: v })}
+              searchPlaceholder="Customer, truck, driver, places…"
+              searchWidth="w-48"
+              activeCount={filterCount}
+              onClear={clearFilters}
+              resultTotal={data?.total}
+              sheetTitle="Filter trips"
+            >
               <Field label="Trip date from">
                 <Input
                   type="date"
@@ -284,7 +340,7 @@ function TripsPage() {
                   <option value="false">Worked out</option>
                 </Select>
               </Field>
-            </>
+            </FilterBar>
           }
         />
       </Card>

@@ -5,7 +5,7 @@ import { Button, ErrorNote, Field, Input } from '~/components/ui'
 
 export const Route = createFileRoute('/signup')({ component: SignupPage })
 
-export function SignupPage() {
+function SignupPage() {
   const navigate = useNavigate()
   const [form, setForm] = React.useState({ name: '', username: '', email: '', password: '' })
   const [error, setError] = React.useState('')

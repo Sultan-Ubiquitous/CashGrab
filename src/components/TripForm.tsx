@@ -338,13 +338,20 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
       )}
 
       <div className="flex justify-between gap-2">
-        <Button variant="subtle" disabled={step === 0} onClick={() => setStep((s) => Math.max(0, s - 1))}>
-          â† Back
+        <Button
+          variant="subtle"
+          disabled={step === 0}
+          onClick={() => setStep((s) => Math.max(0, s - 1))}
+          className="flex-1 md:flex-none"
+        >
+          ← Back
         </Button>
         {step < 2 ? (
-          <Button onClick={next}>Next â†’</Button>
+          <Button onClick={next} className="flex-1 md:flex-none">
+            Next →
+          </Button>
         ) : (
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button onClick={() => save.mutate()} disabled={save.isPending} className="flex-1 md:flex-none">
             {save.isPending ? 'Saving…' : 'Save trip'}
           </Button>
         )}
@@ -390,7 +397,7 @@ function StepsBar({ step, onGo }: { step: number; onGo: (s: number) => void }) {
           <button
             type="button"
             onClick={() => onGo(i)}
-            className={`w-full rounded-lg border px-3 py-2 text-sm font-medium ${
+            className={`min-h-11 w-full rounded-lg border px-3 py-2 text-sm font-medium md:min-h-9 ${
               i === step
                 ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300'
                 : i < step
@@ -428,6 +435,7 @@ function MasterPicker<T>({
             onChange={(e) => {
               if (e.target.value !== '__new__') onPick(e.target.value)
             }}
+            className="min-w-0 flex-1"
           >
             <option value="">Chooseâ€¦</option>
             {options.map((o) => (
@@ -438,7 +446,7 @@ function MasterPicker<T>({
             {sel.fresh ? <option value="__new__">New (just added) âœ“</option> : null}
           </Select>
           {onNew ? (
-            <Button type="button" variant="subtle" onClick={onNew} title="Add new">
+            <Button type="button" variant="subtle" onClick={onNew} title="Add new" className="shrink-0">
               + New
             </Button>
           ) : null}
@@ -524,7 +532,7 @@ function NewTruckModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: New
         <p className="text-[11px] text-gray-400">
           The three readings below can be 0 for now. You can change them later on the Trucks page.
         </p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Field label="Diesel cost (â‚¹)">
             <Input
               inputMode="decimal"
@@ -557,7 +565,11 @@ function NewTruckModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: New
                 setErr('Please write the truck number.')
                 return
               }
-              if (!isMoneyStr(form.dieselCost) || !isMeasureStr(form.dieselLiters) || !isMeasureStr(form.distanceTraveled)) {
+              if (
+                !isMoneyStr(form.dieselCost) ||
+                !isMeasureStr(form.dieselLiters) ||
+                !isMeasureStr(form.distanceTraveled)
+              ) {
                 setErr('Please check the three readings (numbers only).')
                 return
               }

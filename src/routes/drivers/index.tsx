@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { DataTable, useListState, type Column } from '~/components/DataTable'
+import { DataTable, FilterBar, cardCls, useListState, type Column } from '~/components/DataTable'
 import { RequireAuth } from '~/components/RequireAuth'
 import { Button, Card, ErrorNote, Field, Input, Modal } from '~/components/ui'
 import { api, errMessage, qs } from '~/lib/api'
@@ -67,9 +67,12 @@ function DriversPage() {
     },
   ]
 
+  const filterCount = [state.from, state.to].filter((v) => v !== '' && v !== undefined).length
+  const clearFilters = () => patch({ from: '', to: '' })
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Drivers</h1>
         <Button onClick={() => setEditing('new')}>+ Add driver</Button>
       </div>
@@ -82,16 +85,47 @@ function DriversPage() {
           error={error}
           state={state}
           onState={patch}
+          card={(d) => (
+            <div className={cardCls}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold">{d.name}</span>
+                <a href={`tel:${d.phone}`} className="text-sm text-indigo-600 dark:text-indigo-400">
+                  {d.phone}
+                </a>
+              </div>
+              <Link
+                className="mt-1 block text-xs text-indigo-600 dark:text-indigo-400"
+                to="/trips"
+                search={{ driverId: d.id }}
+              >
+                {d.tripCount} trip{d.tripCount === 1 ? '' : 's'} →
+              </Link>
+              <div className="mt-2 flex gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+                <Button size="sm" variant="subtle" onClick={() => setEditing(d)} className="flex-1">
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="flex-1 text-red-600"
+                  onClick={() => confirm(`Delete ${d.name}?`) && del.mutate(d.id)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
           toolbar={
-            <>
-              <Field label="Search">
-                <Input
-                  placeholder="Name or phone…"
-                  value={state.q}
-                  onChange={(e) => patch({ q: e.target.value })}
-                  className="w-44"
-                />
-              </Field>
+            <FilterBar
+              searchValue={String(state.q ?? '')}
+              onSearch={(v) => patch({ q: v })}
+              searchPlaceholder="Name or phone…"
+              searchWidth="w-44"
+              activeCount={filterCount}
+              onClear={clearFilters}
+              resultTotal={data?.total}
+              sheetTitle="Filter drivers"
+            >
               <Field label="Added from">
                 <Input
                   type="date"
@@ -103,7 +137,7 @@ function DriversPage() {
               <Field label="to">
                 <Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" />
               </Field>
-            </>
+            </FilterBar>
           }
         />
       </Card>

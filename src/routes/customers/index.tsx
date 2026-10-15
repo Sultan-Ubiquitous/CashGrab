@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { DataTable, useListState, type Column } from '~/components/DataTable'
+import { DataTable, FilterBar, cardCls, useListState, type Column } from '~/components/DataTable'
 import { RequireAuth } from '~/components/RequireAuth'
 import { Button, Card, ErrorNote, Field, Input, Modal } from '~/components/ui'
 import { api, errMessage, qs } from '~/lib/api'
@@ -68,9 +68,12 @@ function CustomersPage() {
     },
   ]
 
+  const filterCount = [state.from, state.to].filter((v) => v !== '' && v !== undefined).length
+  const clearFilters = () => patch({ from: '', to: '' })
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Customers</h1>
         <Button onClick={() => setEditing('new')}>+ Add customer</Button>
       </div>
@@ -83,16 +86,50 @@ function CustomersPage() {
           error={error}
           state={state}
           onState={patch}
+          card={(c) => (
+            <div className={cardCls}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold">{c.name}</span>
+                {c.phone ? (
+                  <a href={`tel:${c.phone}`} className="text-sm text-indigo-600 dark:text-indigo-400">
+                    {c.phone}
+                  </a>
+                ) : null}
+              </div>
+              <div className="mt-0.5 text-xs text-gray-500">{c.location}</div>
+              <Link
+                className="mt-1 block text-xs text-indigo-600 dark:text-indigo-400"
+                to="/trips"
+                search={{ customerId: c.id }}
+              >
+                {c.tripCount} trip{c.tripCount === 1 ? '' : 's'} →
+              </Link>
+              <div className="mt-2 flex gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+                <Button size="sm" variant="subtle" onClick={() => setEditing(c)} className="flex-1">
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="flex-1 text-red-600"
+                  onClick={() => confirm(`Delete ${c.name}?`) && del.mutate(c.id)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
           toolbar={
-            <>
-              <Field label="Search">
-                <Input
-                  placeholder="Name, phone, location…"
-                  value={state.q}
-                  onChange={(e) => patch({ q: e.target.value })}
-                  className="w-52"
-                />
-              </Field>
+            <FilterBar
+              searchValue={String(state.q ?? '')}
+              onSearch={(v) => patch({ q: v })}
+              searchPlaceholder="Name, phone, location…"
+              searchWidth="w-52"
+              activeCount={filterCount}
+              onClear={clearFilters}
+              resultTotal={data?.total}
+              sheetTitle="Filter customers"
+            >
               <Field label="Added from">
                 <Input
                   type="date"
@@ -104,7 +141,7 @@ function CustomersPage() {
               <Field label="to">
                 <Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" />
               </Field>
-            </>
+            </FilterBar>
           }
         />
       </Card>

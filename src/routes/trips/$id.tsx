@@ -60,13 +60,14 @@ function TripDetailPage() {
             {trip.endPoint} ({qty(Number(trip.distance))} km)
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="subtle" onClick={() => setEditing((v) => !v)}>
+        <div className="flex w-full gap-2 sm:w-auto">
+          <Button variant="subtle" onClick={() => setEditing((v) => !v)} className="flex-1 sm:flex-none">
             {editing ? 'Close editor' : 'Edit trip'}
           </Button>
           <Button
             variant="danger"
             onClick={() => confirm('Delete this trip with its bella record, costs and payments?') && del.mutate()}
+            className="flex-1 sm:flex-none"
           >
             Delete trip
           </Button>
@@ -193,32 +194,48 @@ function TripDetailPage() {
             No payments recorded yet — the full revenue is outstanding.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
-                <tr>
-                  <th className="px-3 py-2">Paid on</th>
-                  <th className="px-3 py-2 text-right">Amount</th>
-                  <th className="px-3 py-2">Note</th>
-                  <th className="px-3 py-2" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {trip.payments.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-3 py-2">{dateIst(p.paidOn)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{money(p.amount)}</td>
-                    <td className="px-3 py-2">{p.note ?? '—'}</td>
-                    <td className="px-3 py-2 text-right">
-                      <Link className="text-xs text-indigo-600 dark:text-indigo-400" to="/payments">
-                        manage in Payments →
-                      </Link>
-                    </td>
+          <>
+            <div className="space-y-2 md:hidden">
+              {trip.payments.map((p) => (
+                <div key={p.id} className="rounded-lg border border-gray-100 px-3 py-2 text-sm dark:border-gray-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>{dateIst(p.paidOn)}</span>
+                    <span className="font-semibold tabular-nums">{money(p.amount)}</span>
+                  </div>
+                  {p.note ? <div className="mt-0.5 truncate text-xs text-gray-500">{p.note}</div> : null}
+                </div>
+              ))}
+              <Link className="block pt-1 text-center text-xs text-indigo-600 dark:text-indigo-400" to="/payments">
+                manage in Payments →
+              </Link>
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2">Paid on</th>
+                    <th className="px-3 py-2 text-right">Amount</th>
+                    <th className="px-3 py-2">Note</th>
+                    <th className="px-3 py-2" />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {trip.payments.map((p) => (
+                    <tr key={p.id}>
+                      <td className="px-3 py-2">{dateIst(p.paidOn)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{money(p.amount)}</td>
+                      <td className="px-3 py-2">{p.note ?? '—'}</td>
+                      <td className="px-3 py-2 text-right">
+                        <Link className="text-xs text-indigo-600 dark:text-indigo-400" to="/payments">
+                          manage in Payments →
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
 
@@ -265,7 +282,7 @@ function MarginOverrideCard({
             placeholder={calculated}
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            className="w-40"
+            className="w-full sm:w-40"
           />
         </Field>
         <Button onClick={() => save.mutate(value.trim() === '' ? null : value.trim())} disabled={save.isPending}>

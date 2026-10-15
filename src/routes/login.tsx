@@ -5,7 +5,7 @@ import { Button, ErrorNote, Field, Input } from '~/components/ui'
 
 export const Route = createFileRoute('/login')({ component: LoginPage })
 
-export function LoginPage() {
+function LoginPage() {
   const navigate = useNavigate()
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')

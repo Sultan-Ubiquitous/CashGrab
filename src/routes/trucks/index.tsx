@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { DataTable, useListState, type Column } from '~/components/DataTable'
+import { DataTable, FilterBar, cardCls, useListState, type Column } from '~/components/DataTable'
 import { RequireAuth } from '~/components/RequireAuth'
 import { Badge, Button, Card, ErrorNote, Field, Input, Modal } from '~/components/ui'
 import { api, errMessage, qs } from '~/lib/api'
@@ -88,9 +88,12 @@ function TrucksPage() {
     },
   ]
 
+  const filterCount = [state.from, state.to].filter((v) => v !== '' && v !== undefined).length
+  const clearFilters = () => patch({ from: '', to: '' })
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Trucks</h1>
         <Button onClick={() => setEditing('new')}>+ Add truck</Button>
       </div>
@@ -103,16 +106,49 @@ function TrucksPage() {
           error={error}
           state={state}
           onState={patch}
+          card={(t) => (
+            <div className={cardCls}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold">{t.registrationNumber}</span>
+                {t.mileageKmPerLiter ? <Badge tone="indigo">{t.mileageKmPerLiter} km/L</Badge> : null}
+              </div>
+              <div className="mt-1 text-xs text-gray-500 tabular-nums">
+                Diesel {money(t.dieselCost)} · {money(t.dieselLiters)} L · {money(t.distanceTraveled)} km
+                {t.costPerKm ? ` · ${money(t.costPerKm)}/km` : ''}
+              </div>
+              <Link
+                className="mt-1 block text-xs text-indigo-600 dark:text-indigo-400"
+                to="/trips"
+                search={{ truckId: t.id }}
+              >
+                {t.tripCount} trip{t.tripCount === 1 ? '' : 's'} →
+              </Link>
+              <div className="mt-2 flex gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+                <Button size="sm" variant="subtle" onClick={() => setEditing(t)} className="flex-1">
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="flex-1 text-red-600"
+                  onClick={() => confirm(`Delete truck ${t.registrationNumber}?`) && del.mutate(t.id)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
           toolbar={
-            <>
-              <Field label="Search">
-                <Input
-                  placeholder="Registration…"
-                  value={state.q}
-                  onChange={(e) => patch({ q: e.target.value })}
-                  className="w-40"
-                />
-              </Field>
+            <FilterBar
+              searchValue={String(state.q ?? '')}
+              onSearch={(v) => patch({ q: v })}
+              searchPlaceholder="Registration…"
+              searchWidth="w-40"
+              activeCount={filterCount}
+              onClear={clearFilters}
+              resultTotal={data?.total}
+              sheetTitle="Filter trucks"
+            >
               <Field label="Added from">
                 <Input
                   type="date"
@@ -124,7 +160,7 @@ function TrucksPage() {
               <Field label="to">
                 <Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" />
               </Field>
-            </>
+            </FilterBar>
           }
         />
       </Card>
@@ -152,14 +188,14 @@ function TruckModal({ truck, onClose }: { truck: TruckDto | null; onClose: () =>
   return (
     <Modal open title={truck ? 'Edit truck' : 'Add truck'} onClose={onClose}>
       <form
-        className="grid grid-cols-2 gap-3"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2"
         onSubmit={(e) => {
           e.preventDefault()
           submit(truck ? 'update' : 'create', form)
         }}
       >
-        {error ? <ErrorNote error={error} className="col-span-2" /> : null}
-        <div className="col-span-2">
+        {error ? <ErrorNote error={error} className="sm:col-span-2" /> : null}
+        <div className="sm:col-span-2">
           <Field label="Registration number" hint="Unique per user, e.g. MH 12 AB 1234">
             <Input required value={form.registrationNumber} onChange={set('registrationNumber')} />
           </Field>
@@ -194,11 +230,11 @@ function TruckModal({ truck, onClose }: { truck: TruckDto | null; onClose: () =>
             onChange={set('distanceTraveled')}
           />
         </Field>
-        <div className="col-span-2 flex justify-end gap-2 pt-2">
-          <Button type="button" variant="subtle" onClick={onClose}>
+        <div className="flex gap-2 pt-2 sm:col-span-2 sm:justify-end">
+          <Button type="button" variant="subtle" onClick={onClose} className="flex-1 sm:flex-none">
             Cancel
           </Button>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="flex-1 sm:flex-none">
             {truck ? 'Save' : 'Create'}
           </Button>
         </div>

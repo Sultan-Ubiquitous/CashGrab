@@ -13,6 +13,21 @@
 @layer base {
   html {
     color-scheme: light dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+
+  button,
+  a,
+  select {
+    touch-action: manipulation;
   }
 
   * {
@@ -27,4 +42,17 @@
   .using-mouse * {
     outline: none !important;
   }
+}
+
+/* Form controls inside bottom sheets stretch full-width, overriding the
+   fixed w-* widths used by the desktop inline toolbars. */
+.filter-sheet input,
+.filter-sheet select,
+.filter-sheet textarea {
+  width: 100%;
+}
+
+/* Fixed bottom bars (tab bar, sticky action bars) clear the iPhone home bar. */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
 }

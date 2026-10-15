@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { DataTable, useListState, type Column } from '~/components/DataTable'
+import { DataTable, FilterBar, cardCls, useListState, type Column } from '~/components/DataTable'
 import { RequireAuth } from '~/components/RequireAuth'
 import { Badge, Button, Card, ErrorNote, Field, Input, Modal, Select } from '~/components/ui'
 import { api, qs } from '~/lib/api'
@@ -63,6 +63,9 @@ function BellaPage() {
     },
   ]
 
+  const filterCount = [state.from, state.to, state.sourceOwnership].filter((v) => v !== '' && v !== undefined).length
+  const clearFilters = () => patch({ from: '', to: '', sourceOwnership: '' })
+
   return (
     <div className="space-y-4">
       <div>
@@ -79,16 +82,43 @@ function BellaPage() {
           error={error}
           state={state}
           onState={patch}
+          card={(b) => (
+            <div className={cardCls}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-semibold">{b.source}</span>
+                {b.sourceOwnership ? <Badge tone="green">own kiln</Badge> : <Badge>third-party</Badge>}
+              </div>
+              <div className="mt-0.5 text-xs text-gray-500">
+                {b.tripId ? (
+                  <Link to="/trips/$id" params={{ id: b.tripId }} className="text-indigo-600 dark:text-indigo-400">
+                    Trip {dateIst(b.tripDate)}
+                  </Link>
+                ) : (
+                  dateIst(b.tripDate)
+                )}{' '}
+                · {qty(b.quantity)} bricks
+              </div>
+              <div className="mt-1 text-xs text-gray-500 tabular-nums">
+                Buy {money(b.costPrice)}/brick · Sell {money(b.sellingPrice)}/brick
+              </div>
+              <div className="mt-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+                <Button size="sm" variant="subtle" onClick={() => setEditing(b)} className="w-full">
+                  Edit source
+                </Button>
+              </div>
+            </div>
+          )}
           toolbar={
-            <>
-              <Field label="Search">
-                <Input
-                  placeholder="Source…"
-                  value={state.q}
-                  onChange={(e) => patch({ q: e.target.value })}
-                  className="w-40"
-                />
-              </Field>
+            <FilterBar
+              searchValue={String(state.q ?? '')}
+              onSearch={(v) => patch({ q: v })}
+              searchPlaceholder="Source…"
+              searchWidth="w-40"
+              activeCount={filterCount}
+              onClear={clearFilters}
+              resultTotal={data?.total}
+              sheetTitle="Filter bricks"
+            >
               <Field label="Trip date from">
                 <Input
                   type="date"
@@ -111,7 +141,7 @@ function BellaPage() {
                   <option value="false">Third-party</option>
                 </Select>
               </Field>
-            </>
+            </FilterBar>
           }
         />
       </Card>
