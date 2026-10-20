@@ -1,11 +1,11 @@
-import * as React from 'react'
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { DataTable, FilterBar, cardCls, useListState, type Column } from '~/components/DataTable'
-import { RequireAuth } from '~/components/RequireAuth'
+import { PageHeader } from '~/components/PageHeader'
 import { Badge, Button, Card, Field, Input, Select, cx } from '~/components/ui'
 import { api, qs } from '~/lib/api'
+import { guardSession } from '~/lib/session'
 import { dateIst, money, qty } from '~/lib/format'
 import { useMasterOptions } from '~/lib/masterOptions'
 import type { PageDto, TripRowDto, TripTotalsDto } from '~/shared/schemas'
@@ -28,16 +28,13 @@ export const Route = createFileRoute('/trips/')({
     const parsed = searchSchema.safeParse(s)
     return parsed.success ? parsed.data : {}
   },
-  component: () => (
-    <RequireAuth>
-      <TripsPage />
-    </RequireAuth>
-  ),
+  beforeLoad: ({ context, location }) => guardSession(context, location.href),
+  head: () => ({ meta: [{ title: 'Trips · Quick Money' }] }),
+  component: TripsPage,
 })
 
 function TripsPage() {
   const search = Route.useSearch()
-  const navigate = useNavigate()
   const [state, patch] = useListState('tripDate', {
     q: search.q ?? '',
     from: search.from ?? '',
@@ -50,19 +47,11 @@ function TripsPage() {
     marginOverridden: search.marginOverridden ?? '',
   })
 
-  // Deep-link filters seed the local list state once, then leave the URL clean.
-  const deepLinked = React.useRef(false)
-  React.useEffect(() => {
-    if (deepLinked.current) return
-    deepLinked.current = true
-    if (Object.keys(search).length === 0) return
-    void navigate({ to: '/trips', search: {}, replace: true })
-  }, [search, navigate])
-
   const query = { ...state, sort: state.sort, order: state.order, page: state.page, pageSize: state.pageSize }
   const { data, isLoading, error } = useQuery({
     queryKey: ['trips', query],
     queryFn: () => api<PageDto<TripRowDto>>('GET', `/trips${qs(query)}`),
+    placeholderData: keepPreviousData,
   })
   const filterParams = {
     from: state.from,
@@ -78,6 +67,7 @@ function TripsPage() {
   const { data: totals } = useQuery({
     queryKey: ['tripsTotals', filterParams],
     queryFn: () => api<TripTotalsDto>('GET', `/reports/trips/totals${qs(filterParams)}`),
+    placeholderData: keepPreviousData,
   })
   const { customers, trucks, drivers } = useMasterOptions()
 
@@ -109,20 +99,24 @@ function TripsPage() {
       header: 'Date',
       sortable: true,
       render: (t) => (
-        <Link className="font-medium text-indigo-600 dark:text-indigo-400" to="/trips/$id" params={{ id: t.id }}>
+        <Link className="font-medium text-link" to="/trips/$id" params={{ id: t.id }}>
           {dateIst(t.tripDate)}
         </Link>
       ),
     },
     { key: 'customer', header: 'Customer', render: (t) => t.customer.name },
-    { key: 'truck', header: 'Truck', render: (t) => t.truck.registrationNumber },
+    {
+      key: 'truck',
+      header: 'Truck',
+      render: (t) => <span className="font-mono text-[13px]">{t.truck.registrationNumber}</span>,
+    },
     { key: 'driver', header: 'Driver', render: (t) => t.driver.name },
     {
       key: 'route',
       header: 'Route',
       render: (t) => (
-        <span className="text-xs text-gray-500">
-          {t.startPoint} → {t.endPoint}
+        <span className="text-xs text-fg-2">
+          {t.startPoint} to {t.endPoint}
         </span>
       ),
     },
@@ -141,15 +135,9 @@ function TripsPage() {
       sortable: true,
       align: 'right',
       render: (t) => (
-        <span
-          className={
-            Number(t.financials.netMarginEffective) >= 0
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-red-600 dark:text-red-400'
-          }
-        >
+        <span className={Number(t.financials.netMarginEffective) >= 0 ? 'text-pos' : 'text-neg'}>
           {money(t.financials.netMarginEffective)}
-          {t.financials.isMarginOverridden ? <Badge tone="amber">fixed by hand</Badge> : null}
+          {t.financials.isMarginOverridden ? <Badge tone="amber">Adjusted</Badge> : null}
         </span>
       ),
     },
@@ -162,38 +150,40 @@ function TripsPage() {
     },
     {
       key: 'paymentDue',
-      header: 'Paid?',
+      header: 'Status',
       align: 'center',
-      render: (t) => (t.paymentDue ? <Badge tone="red">due</Badge> : <Badge tone="green">paid</Badge>),
+      render: (t) => (t.paymentDue ? <Badge tone="red">To collect</Badge> : <Badge tone="green">Paid</Badge>),
     },
   ]
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">Trips</h1>
-        <div className="flex gap-2">
-          <a
-            className="hidden min-h-11 items-center rounded-md bg-gray-100 px-3 text-sm font-medium hover:bg-gray-200 active:bg-gray-200 sm:inline-flex md:min-h-9 dark:bg-gray-800 dark:hover:bg-gray-700 dark:active:bg-gray-700"
-            href={`/api/exports/trips?format=csv${qs(filterParams)}`}
-          >
-            Export CSV
-          </a>
-          <a
-            className="hidden min-h-11 items-center rounded-md bg-gray-100 px-3 text-sm font-medium hover:bg-gray-200 active:bg-gray-200 sm:inline-flex md:min-h-9 dark:bg-gray-800 dark:hover:bg-gray-700 dark:active:bg-gray-700"
-            href={`/api/exports/trips?format=xlsx${qs(filterParams)}`}
-          >
-            Export XLSX
-          </a>
-          <Link to="/trips/new">
-            <Button>+ New trip</Button>
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Trips"
+        action={
+          <div className="flex flex-wrap gap-2">
+            <a
+              className="hidden min-h-9 items-center rounded-md border border-line-control px-3 text-sm font-medium hover:bg-subtle active:bg-subtle-strong sm:inline-flex"
+              href={`/api/exports/trips?format=csv${qs(filterParams)}`}
+            >
+              Export CSV
+            </a>
+            <a
+              className="hidden min-h-9 items-center rounded-md border border-line-control px-3 text-sm font-medium hover:bg-subtle active:bg-subtle-strong sm:inline-flex"
+              href={`/api/exports/trips?format=xlsx${qs(filterParams)}`}
+            >
+              Export XLSX
+            </a>
+            <Link to="/trips/new">
+              <Button>New trip</Button>
+            </Link>
+          </div>
+        }
+      />
 
       {totals ? (
-        <div className="flex flex-wrap gap-x-8 gap-y-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm tabular-nums dark:border-gray-800 dark:bg-gray-900">
-          <span className="text-gray-500">{qty(totals.tripCount)} trips</span>
+        <div className="card-flip flex flex-wrap gap-x-8 gap-y-1 rounded-lg px-4 py-2.5 text-sm tabular-nums shadow-card">
+          <span className="text-fg-2">{qty(totals.tripCount)} trips</span>
           <span>
             Sale <b>{money(totals.revenue)}</b>
           </span>
@@ -219,34 +209,25 @@ function TripsPage() {
           state={state}
           onState={patch}
           card={(t) => (
-            <Link
-              to="/trips/$id"
-              params={{ id: t.id }}
-              className={cx(cardCls, 'block active:bg-gray-50 dark:active:bg-gray-800/60')}
-            >
+            <Link to="/trips/$id" params={{ id: t.id }} className={cx(cardCls, 'block active:bg-subtle')}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold">{dateIst(t.tripDate)}</span>
-                {t.paymentDue ? <Badge tone="red">due</Badge> : <Badge tone="green">paid</Badge>}
+                {t.paymentDue ? <Badge tone="red">To collect</Badge> : <Badge tone="green">Paid</Badge>}
               </div>
               <div className="mt-1 text-sm">{t.customer.name}</div>
-              <div className="mt-0.5 truncate text-xs text-gray-500">
-                {t.truck.registrationNumber} · {t.startPoint} → {t.endPoint}
+              <div className="mt-0.5 truncate text-xs text-fg-2">
+                <span className="font-mono text-[13px]">{t.truck.registrationNumber}</span> · {t.startPoint} to{' '}
+                {t.endPoint}
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-gray-100 pt-2 text-xs tabular-nums dark:border-gray-800">
-                <span className="text-gray-500">
-                  Sale <b className="text-gray-900 dark:text-gray-100">{money(t.financials.revenue)}</b>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-2 text-xs tabular-nums">
+                <span className="text-fg-2">
+                  Sale <b className="text-fg">{money(t.financials.revenue)}</b>
                 </span>
-                <span
-                  className={
-                    Number(t.financials.netMarginEffective) >= 0
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-red-600 dark:text-red-400'
-                  }
-                >
+                <span className={Number(t.financials.netMarginEffective) >= 0 ? 'text-pos' : 'text-neg'}>
                   Profit <b>{money(t.financials.netMarginEffective)}</b>
                 </span>
-                <span className="text-gray-500">
-                  To collect <b className="text-gray-900 dark:text-gray-100">{money(t.financials.amountRemaining)}</b>
+                <span className="text-fg-2">
+                  To collect <b className="text-fg">{money(t.financials.amountRemaining)}</b>
                 </span>
               </div>
             </Link>
@@ -256,13 +237,12 @@ function TripsPage() {
               searchValue={String(state.q ?? '')}
               onSearch={(v) => patch({ q: v })}
               searchPlaceholder="Customer, truck, driver, places…"
-              searchWidth="w-48"
               activeCount={filterCount}
               onClear={clearFilters}
               resultTotal={data?.total}
               sheetTitle="Filter trips"
             >
-              <Field label="Trip date from">
+              <Field label="From date">
                 <Input
                   type="date"
                   value={state.from}
@@ -270,7 +250,7 @@ function TripsPage() {
                   className="w-36"
                 />
               </Field>
-              <Field label="to">
+              <Field label="To date">
                 <Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" />
               </Field>
               <Field label="Customer">

@@ -76,8 +76,9 @@ Notes:
 ## Business rules (implemented once, used everywhere)
 
 All formulas live in `src/server/services/calc.ts` and, for aggregation, in the
-`trip_financials` SQL view (see `prisma/migrations`). Lists, dashboard, reports
-and exports all read from these, so numbers can never disagree.
+`trip_financials` and `truck_financials` SQL views (see `prisma/migrations`).
+Lists, dashboard, reports and exports all read from these, so numbers can never
+disagree.
 
 - **Revenue** = `brickQuantity × brickSellingPrice` (locked copy on the trip)
 - **Brick cost** = `brickQuantity × brickCostPrice`, included only when
@@ -97,9 +98,10 @@ and exports all read from these, so numbers can never disagree.
   trip keeps a **locked copy** of quantity/prices at creation:
   - correctable only while the trip has **no payments** (mirrored to the bella row);
   - the Bella page may edit only `source` / `sourceOwnership` — never money.
-- **Trucks**: `dieselCost`, `dieselLiters`, `distanceTraveled` are manual;
-  mileage (km/L) and ₹/km are derived. Registration is unique per user
-  (normalised: trimmed, upper-cased).
+- **Trucks**: creation needs only the registration number (unique per user,
+  normalised: trimmed, upper-cased). Diesel cost and distance are aggregates
+  of the truck's trips (SQL view `truck_financials`); ₹/km is derived from
+  them.
 - **Deletes**: truck/driver/customer referenced by trips → 409; deleting a trip
   removes its bella record, trip costs and payments in one transaction.
 - **Dates**: `tripDate`/`paidOn` are Asia/Kolkata calendar dates; monthly
@@ -125,7 +127,7 @@ prefix spreadsheet-formula-like text (`= + - @` tab/CR) with `'`.
 
 ```
 prisma/schema.prisma        # models + composite user FKs (ownership in the DB)
-prisma/migrations/         # incl. CHECK constraints + trip_financials view
+prisma/migrations/         # incl. CHECK constraints + trip_financials/truck_financials views
 src/server/                 # Hono app: routes/, services/, exports/, lib/
 src/shared/schemas.ts       # Zod request/response contracts (API + UI)
 src/routes/                 # TanStack Start pages; routes/api/$.ts mounts Hono
@@ -137,6 +139,12 @@ tests/calc.test.ts          # formula/date/export-cell unit tests
 
 Better Auth owns `user/session/account/verification`; the username plugin adds
 unique usernames; `phone` is an additional user field editable via `PUT /api/me`.
+Sign-in is email/password or Google; a Google login with a matching email links
+to the existing account automatically (`account.accountLinking`, local email
+verification disabled). A Google-only user can set a password (Profile page →
+`POST /api/me/set-password`, which proxies Better Auth's server-only
+setPassword), and an email/password user can connect a matching Google account
+(`/api/auth/link-social`).
 Every business table carries `user_id` with `@@unique([id, user_id])`, and trips
 reference their masters through `(id, user_id)` composite FKs — the database
 itself refuses cross-user links. The session middleware supplies `userId`;

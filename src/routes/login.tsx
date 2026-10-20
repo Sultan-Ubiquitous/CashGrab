@@ -1,12 +1,39 @@
 import * as React from 'react'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { authClient } from '~/lib/auth-client'
+import { safeRedirect } from '~/lib/session'
+import { AuthLayout } from '~/components/AuthLayout'
 import { Button, ErrorNote, Field, Input } from '~/components/ui'
 
-export const Route = createFileRoute('/login')({ component: LoginPage })
+export const Route = createFileRoute('/login')({
+  validateSearch: (s): { error?: string; redirect?: string } => {
+    const r = s as { error?: unknown; redirect?: unknown }
+    return {
+      ...(typeof r.error === 'string' ? { error: r.error } : {}),
+      ...(typeof r.redirect === 'string' ? { redirect: r.redirect } : {}),
+    }
+  },
+  // Already signed in: skip the form.
+  beforeLoad: ({ context, search }) => {
+    if (context.session) throw redirect({ href: safeRedirect(search.redirect), replace: true })
+  },
+  head: () => ({ meta: [{ title: 'Sign in · Quick Money' }] }),
+  component: LoginPage,
+})
+
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  account_not_linked:
+    'This Google account is not linked to an account here. Sign in with email & password, or create a new account.',
+  email_does_not_match: 'The Google account email must match your account email.',
+  account_already_linked_to_different_user: 'This Google account is already connected to a different account.',
+}
 
 function LoginPage() {
+  const { error: oauthError, redirect: redirectTo } = Route.useSearch()
+  const target = safeRedirect(redirectTo)
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [error, setError] = React.useState('')
@@ -18,22 +45,36 @@ function LoginPage() {
     setError('')
     const { error } = await authClient.signIn.email({ email, password })
     setBusy(false)
-    if (error) setError(error.message ?? 'Sign-in failed')
-    else navigate({ to: '/' })
+    if (error) {
+      setError(error.message ?? 'Sign-in failed')
+      return
+    }
+    qc.removeQueries({ queryKey: ['session'] })
+    void navigate({ href: target, replace: true })
   }
 
+  const displayError =
+    error || (oauthError ? (OAUTH_ERROR_MESSAGES[oauthError] ?? `Google sign-in failed (${oauthError}).`) : '')
+
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-sm space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900"
-      >
-        <h1 className="text-lg font-bold">Sign in to Quick Money</h1>
-        {error ? <ErrorNote error={error} /> : null}
+    <AuthLayout
+      title="Sign in"
+      footer={
+        <>
+          No account?{' '}
+          <Link to="/signup" className="font-medium text-link">
+            Create one
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={submit} className="space-y-4">
+        {displayError ? <ErrorNote error={displayError} /> : null}
         <Field label="Email">
           <Input
             type="email"
             required
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
@@ -44,33 +85,28 @@ function LoginPage() {
             type="password"
             required
             minLength={8}
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
+            placeholder="Password"
           />
         </Field>
         <Button type="submit" className="w-full" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </Button>
-        <Button
-          type="button"
-          variant="subtle"
-          className="w-full"
-          disabled={busy}
-          onClick={async () => {
-            const { error } = await authClient.signIn.social({ provider: 'google', callbackURL: '/' })
-            if (error) setError(error.message ?? 'Google sign-in is not configured')
-          }}
-        >
-          Continue with Google
-        </Button>
-        <p className="text-center text-xs text-gray-500">
-          No account?{' '}
-          <Link to="/signup" className="font-medium text-indigo-600 dark:text-indigo-400">
-            Create one
-          </Link>
-        </p>
       </form>
-    </div>
+      <Button
+        type="button"
+        variant="subtle"
+        className="w-full"
+        disabled={busy}
+        onClick={async () => {
+          const { error } = await authClient.signIn.social({ provider: 'google', callbackURL: target })
+          if (error) setError(error.message ?? 'Google sign-in is not configured')
+        }}
+      >
+        Continue with Google
+      </Button>
+    </AuthLayout>
   )
 }

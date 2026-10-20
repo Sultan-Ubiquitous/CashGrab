@@ -1,3 +1,6 @@
+import 'dotenv/config'
+import pg from 'pg'
+
 const BASE = process.env.SMOKE_BASE ?? 'http://localhost:3000'
 const ORIGIN = BASE
 
@@ -14,8 +17,16 @@ function client() {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     })
     const sc = res.headers.getSetCookie?.() ?? []
-    if (sc.length)
-      cookie = [...new Set([...cookie.split('; ').filter(Boolean), ...sc.map((c) => c.split(';')[0])])].join('; ')
+    if (sc.length) {
+      // Last write wins per cookie name (sign-out empties the session cookie,
+      // the next sign-in replaces it).
+      const jar = new Map()
+      for (const pair of [...cookie.split('; ').filter(Boolean), ...sc.map((c) => c.split(';')[0])]) {
+        const [k, v] = pair.split(/=(.*)/s)
+        jar.set(k, v)
+      }
+      cookie = [...jar.entries()].map(([k, v]) => `${k}=${v}`).join('; ')
+    }
     const buf = Buffer.from(await res.arrayBuffer())
     const text = buf.toString('utf8')
     let json = null
@@ -70,18 +81,33 @@ assert(
 const meTaken = await A('PUT', '/api/me', { username: `b${uniq}` }, 422)
 assert(meTaken.status === 422 && meTaken.json.error.code === 'VALIDATION_ERROR', 'taken username rejected')
 
+// --- sign-in methods: password flag + add-password flow (OAuth-style user)
+eq(me1.json.hasPassword, true, 'email signup has password')
+eq(me1.json.googleLinked, false, 'no google linked yet')
+
+const pgPool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL ?? process.env.DIRECT_URL,
+  max: 1,
+})
+// Simulate a Google-only user by removing the credential account row directly.
+await pgPool.query('DELETE FROM account WHERE user_id = $1 AND provider_id = $2', [me1.json.id, 'credential'])
+const meNoPw = await A('GET', '/api/me')
+eq(meNoPw.json.hasPassword, false, 'hasPassword false without credential account')
+const setPw = await A('POST', '/api/me/set-password', { newPassword: 'new-password-1' }, 200)
+assert(setPw.json.status === true, 'set-password succeeds')
+const mePw = await A('GET', '/api/me')
+eq(mePw.json.hasPassword, true, 'hasPassword true after set-password')
+await A('POST', '/api/auth/sign-out', {}, 200)
+const relogin = await A('POST', '/api/auth/sign-in/email', { email: aEmail, password: 'new-password-1' }, 200)
+assert(relogin.json.user, 'email+password login works after adding a password')
+await pgPool.end()
+
 // --- A creates masters
 const reg = 'MH 12 AB ' + String(uniq % 10000).padStart(4, '0')
-const truck = (
-  await A(
-    'POST',
-    '/api/trucks',
-    { registrationNumber: reg, dieselCost: '50000.50', dieselLiters: '4000', distanceTraveled: '24000' },
-    201,
-  )
-).json
-eq(truck.mileageKmPerLiter, '6.00', 'mileage')
-eq(truck.costPerKm, '2.08', 'cost/km')
+const truck = (await A('POST', '/api/trucks', { registrationNumber: reg }, 201)).json
+eq(truck.dieselCost, '0.00', 'truck diesel starts at 0')
+eq(truck.distanceTraveled, '0.00', 'truck distance starts at 0')
+eq(truck.costPerKm, null, 'cost/km null with no trips')
 eq(truck.tripCount, 0, 'truck tripCount')
 const driver = (await A('POST', '/api/drivers', { name: 'Raju', phone: '+919876543210' }, 201)).json
 const customer = (
@@ -116,7 +142,7 @@ const inlineTrip = (
     '/api/trips',
     {
       customer: { new: { name: 'Inline Depot', phone: null, location: 'Igatpuri' } },
-      truck: { new: { registrationNumber: reg + '-IN', dieselCost: '0', dieselLiters: '0', distanceTraveled: '0' } },
+      truck: { new: { registrationNumber: reg + '-IN' } },
       driver: { new: { name: 'Inline Driver', phone: '+919999999999' } },
       tripDate: '2026-10-09',
       distance: '50',
@@ -138,7 +164,7 @@ const dupInline = await A(
   '/api/trips',
   {
     customer: { id: customer.id },
-    truck: { new: { registrationNumber: reg + '-IN', dieselCost: '0', dieselLiters: '0', distanceTraveled: '0' } },
+    truck: { new: { registrationNumber: reg + '-IN' } },
     driver: { id: driver.id },
     tripDate: '2026-10-09',
     distance: '50',
@@ -237,6 +263,13 @@ const skipRejected = await A(
   422,
 )
 eq(skipRejected.json.error.code, 'BRICK_COST_SKIP_NOT_ALLOWED', 'skip only for own kiln')
+
+// --- truck aggregates derive from its trips (diesel + distance)
+const truckAgg = (await A('GET', `/api/trucks/${truck.id}`)).json
+eq(truckAgg.dieselCost, '2300.25', 'truck diesel = sum of trips (1500.25+800)')
+eq(truckAgg.distanceTraveled, '200.50', 'truck distance = sum of trips (120.50+80)')
+eq(truckAgg.costPerKm, '11.47', 'cost/km derived from aggregates')
+eq(truckAgg.tripCount, 2, 'truck tripCount after trips')
 
 // --- payments: partial, overpay rejected, full clears paymentDue
 const p1 = (

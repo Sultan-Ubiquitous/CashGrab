@@ -11,8 +11,9 @@
  *   amountReceived     = Σ payments.amount
  *   amountRemaining    = revenue − amountReceived
  *   paymentDue         = amountRemaining > 0
- *   truck mileage      = distanceTraveled / dieselLiters   (km per litre)
  *   truck cost per km  = dieselCost / distanceTraveled     (₹ per km)
+ *                          where dieselCost/distanceTraveled are the truck's
+ *                          trip aggregates (SQL view "truck_financials")
  */
 import { dec, money, moneyOrNull, sum, type Dec, type DecimalInput } from '../lib/money'
 
@@ -96,12 +97,6 @@ export function tripFinancials(
     amountReceived: money(received),
     amountRemaining: money(revenue.minus(received)),
   }
-}
-
-/** km per litre; null when litres is 0. */
-export function truckMileage(distanceTraveled: DecimalInput, dieselLiters: DecimalInput): string | null {
-  const l = dec(dieselLiters)
-  return l.isZero() ? null : money(dec(distanceTraveled).dividedBy(l))
 }
 
 /** ₹ per km; null when distance is 0. */

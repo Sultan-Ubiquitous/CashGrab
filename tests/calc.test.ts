@@ -8,7 +8,6 @@ import {
   tripFinancials,
   tripRevenue,
   truckCostPerKm,
-  truckMileage,
 } from '~/server/services/calc'
 import { dec, money, moneyOrNull, sum } from '~/server/lib/money'
 import { csvCell, sanitizeText, xlsxCell } from '~/server/exports/cells'
@@ -117,9 +116,7 @@ describe('trip formulas (single source of truth)', () => {
 })
 
 describe('truck derived figures', () => {
-  it('mileage = km / litres, cost per km = ₹ / km', () => {
-    expect(truckMileage('24000', '4000')).toBe('6.00')
-    expect(truckMileage('24000', '0')).toBeNull()
+  it('cost per km = aggregated diesel cost / aggregated distance', () => {
     expect(truckCostPerKm('50000.50', '24000')).toBe('2.08')
     expect(truckCostPerKm('50000.50', '0')).toBeNull()
   })

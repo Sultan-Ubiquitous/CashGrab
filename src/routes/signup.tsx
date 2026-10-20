@@ -1,12 +1,21 @@
 import * as React from 'react'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { authClient } from '~/lib/auth-client'
+import { AuthLayout } from '~/components/AuthLayout'
 import { Button, ErrorNote, Field, Input } from '~/components/ui'
 
-export const Route = createFileRoute('/signup')({ component: SignupPage })
+export const Route = createFileRoute('/signup')({
+  beforeLoad: ({ context }) => {
+    if (context.session) throw redirect({ to: '/', replace: true })
+  },
+  head: () => ({ meta: [{ title: 'Create account · Quick Money' }] }),
+  component: SignupPage,
+})
 
 function SignupPage() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [form, setForm] = React.useState({ name: '', username: '', email: '', password: '' })
   const [error, setError] = React.useState('')
   const [busy, setBusy] = React.useState(false)
@@ -19,47 +28,64 @@ function SignupPage() {
     setError('')
     const { error } = await authClient.signUp.email({ ...form, callbackURL: '/' })
     setBusy(false)
-    if (error) setError(error.message ?? 'Sign-up failed')
-    else navigate({ to: '/' })
+    if (error) {
+      setError(error.message ?? 'Sign-up failed')
+      return
+    }
+    qc.removeQueries({ queryKey: ['session'] })
+    void navigate({ to: '/', replace: true })
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-sm space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900"
-      >
-        <h1 className="text-lg font-bold">Create your account</h1>
+    <AuthLayout
+      title="Create account"
+      footer={
+        <>
+          Already registered?{' '}
+          <Link to="/login" className="font-medium text-link">
+            Sign in
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={submit} className="space-y-4">
         {error ? <ErrorNote error={error} /> : null}
         <Field label="Name">
-          <Input required value={form.name} onChange={set('name')} placeholder="Your name" />
+          <Input required autoComplete="name" value={form.name} onChange={set('name')} placeholder="Your name" />
         </Field>
         <Field label="Username" hint="Letters, numbers, - and _">
-          <Input required value={form.username} onChange={set('username')} placeholder="username" />
+          <Input
+            required
+            autoComplete="username"
+            value={form.username}
+            onChange={set('username')}
+            placeholder="username"
+          />
         </Field>
         <Field label="Email">
-          <Input type="email" required value={form.email} onChange={set('email')} placeholder="you@example.com" />
+          <Input
+            type="email"
+            required
+            autoComplete="email"
+            value={form.email}
+            onChange={set('email')}
+            placeholder="you@example.com"
+          />
         </Field>
         <Field label="Password" hint="At least 8 characters">
           <Input
             type="password"
             required
             minLength={8}
+            autoComplete="new-password"
             value={form.password}
             onChange={set('password')}
-            placeholder="••••••••"
           />
         </Field>
         <Button type="submit" className="w-full" disabled={busy}>
           {busy ? 'Creating…' : 'Create account'}
         </Button>
-        <p className="text-center text-xs text-gray-500">
-          Already registered?{' '}
-          <Link to="/login" className="font-medium text-indigo-600 dark:text-indigo-400">
-            Sign in
-          </Link>
-        </p>
       </form>
-    </div>
+    </AuthLayout>
   )
 }

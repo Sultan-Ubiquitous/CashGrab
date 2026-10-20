@@ -1,20 +1,20 @@
 import * as React from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { DataTable, FilterBar, cardCls, useListState, type Column } from '~/components/DataTable'
-import { RequireAuth } from '~/components/RequireAuth'
-import { Button, Card, ErrorNote, Field, Input, Modal, TextArea } from '~/components/ui'
+import { PageHeader } from '~/components/PageHeader'
+import { Button, Card, ErrorNote, Field, Input, TextArea } from '~/components/ui'
+import { Dialog } from '~/components/Dialog'
 import { api, errMessage, qs } from '~/lib/api'
+import { guardSession } from '~/lib/session'
 import { dateIst, money } from '~/lib/format'
 import { useEntitySave } from '~/lib/useEntitySave'
 import type { PaymentRowDto, TripDetailDto, PageDto } from '~/shared/schemas'
 
 export const Route = createFileRoute('/payments/')({
-  component: () => (
-    <RequireAuth>
-      <PaymentsPage />
-    </RequireAuth>
-  ),
+  beforeLoad: ({ context, location }) => guardSession(context, location.href),
+  head: () => ({ meta: [{ title: 'Payments · Quick Money' }] }),
+  component: PaymentsPage,
 })
 
 function PaymentsPage() {
@@ -25,6 +25,7 @@ function PaymentsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['payments', state],
     queryFn: () => api<PageDto<PaymentRowDto>>('GET', `/payments${qs(state)}`),
+    placeholderData: keepPreviousData,
   })
   const del = useMutation({
     mutationFn: (id: string) => api<TripDetailDto>('DELETE', `/payments/${id}`),
@@ -46,7 +47,7 @@ function PaymentsPage() {
       key: 'tripDate',
       header: 'Trip',
       render: (p) => (
-        <Link to="/trips/$id" params={{ id: p.tripId }} className="text-indigo-600 dark:text-indigo-400">
+        <Link to="/trips/$id" params={{ id: p.tripId }} className="text-link">
           {dateIst(p.tripDate)} · {p.customer.name}
         </Link>
       ),
@@ -64,7 +65,7 @@ function PaymentsPage() {
           <Button
             size="sm"
             variant="ghost"
-            className="text-red-600"
+            className="text-neg"
             onClick={() => confirm('Delete this payment?') && del.mutate(p.id)}
           >
             Delete
@@ -79,13 +80,11 @@ function PaymentsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">Money in</h1>
-        <p className="text-xs text-gray-500">
-          Money received for trips. Each trip's received money is the total of these lines.
-        </p>
-      </div>
-      {del.error ? <div className="text-xs text-red-600">{errMessage(del.error)}</div> : null}
+      <PageHeader
+        title="Payments"
+        description="Money received for trips. Each trip's received money is the total of these lines."
+      />
+      {del.error ? <div className="text-xs text-neg">{errMessage(del.error)}</div> : null}
       <Card>
         <DataTable
           columns={columns}
@@ -100,22 +99,18 @@ function PaymentsPage() {
                 <span className="text-sm font-semibold">{dateIst(p.paidOn)}</span>
                 <span className="text-sm font-semibold tabular-nums">{money(p.amount)}</span>
               </div>
-              <Link
-                to="/trips/$id"
-                params={{ id: p.tripId }}
-                className="mt-0.5 block text-sm text-indigo-600 dark:text-indigo-400"
-              >
+              <Link to="/trips/$id" params={{ id: p.tripId }} className="mt-0.5 block text-sm text-link">
                 {dateIst(p.tripDate)} · {p.customer.name}
               </Link>
-              {p.note ? <div className="mt-0.5 truncate text-xs text-gray-500">{p.note}</div> : null}
-              <div className="mt-2 flex gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+              {p.note ? <div className="mt-0.5 truncate text-xs text-fg-2">{p.note}</div> : null}
+              <div className="mt-2 flex gap-2 border-t border-line pt-2">
                 <Button size="sm" variant="subtle" onClick={() => setEditing(p)} className="flex-1">
                   Edit
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="flex-1 text-red-600"
+                  className="flex-1 text-neg"
                   onClick={() => confirm('Delete this payment?') && del.mutate(p.id)}
                 >
                   Delete
@@ -128,13 +123,12 @@ function PaymentsPage() {
               searchValue={String(state.q ?? '')}
               onSearch={(v) => patch({ q: v })}
               searchPlaceholder="Note or customer…"
-              searchWidth="w-44"
               activeCount={filterCount}
               onClear={clearFilters}
               resultTotal={data?.total}
               sheetTitle="Filter payments"
             >
-              <Field label="Paid from">
+              <Field label="From date">
                 <Input
                   type="date"
                   value={state.from}
@@ -142,7 +136,7 @@ function PaymentsPage() {
                   className="w-36"
                 />
               </Field>
-              <Field label="to">
+              <Field label="To date">
                 <Input type="date" value={state.to} onChange={(e) => patch({ to: e.target.value })} className="w-36" />
               </Field>
             </FilterBar>
@@ -162,7 +156,7 @@ function PaymentModal({ payment, onClose }: { payment: PaymentRowDto; onClose: (
     onClose,
   })
   return (
-    <Modal open title="Edit payment" onClose={onClose}>
+    <Dialog open title="Edit payment" onClose={onClose}>
       <form
         className="space-y-3"
         onSubmit={(e) => {
@@ -199,6 +193,6 @@ function PaymentModal({ payment, onClose }: { payment: PaymentRowDto; onClose: (
           </Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   )
 }

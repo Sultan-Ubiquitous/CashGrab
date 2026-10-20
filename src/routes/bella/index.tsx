@@ -1,20 +1,20 @@
 import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { DataTable, FilterBar, cardCls, useListState, type Column } from '~/components/DataTable'
-import { RequireAuth } from '~/components/RequireAuth'
-import { Badge, Button, Card, ErrorNote, Field, Input, Modal, Select } from '~/components/ui'
+import { PageHeader } from '~/components/PageHeader'
+import { Badge, Button, Card, ErrorNote, Field, Input, Select } from '~/components/ui'
+import { Dialog } from '~/components/Dialog'
 import { api, qs } from '~/lib/api'
+import { guardSession } from '~/lib/session'
 import { dateIst, money, qty } from '~/lib/format'
 import { useEntitySave } from '~/lib/useEntitySave'
 import type { BellaDto, PageDto } from '~/shared/schemas'
 
 export const Route = createFileRoute('/bella/')({
-  component: () => (
-    <RequireAuth>
-      <BellaPage />
-    </RequireAuth>
-  ),
+  beforeLoad: ({ context, location }) => guardSession(context, location.href),
+  head: () => ({ meta: [{ title: 'Bricks · Quick Money' }] }),
+  component: BellaPage,
 })
 
 function BellaPage() {
@@ -24,6 +24,7 @@ function BellaPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['bella', state],
     queryFn: () => api<PageDto<BellaDto>>('GET', `/bella${qs(state)}`),
+    placeholderData: keepPreviousData,
   })
 
   const columns: Column<BellaDto>[] = [
@@ -33,7 +34,7 @@ function BellaPage() {
       sortable: true,
       render: (b) =>
         b.tripId ? (
-          <Link to="/trips/$id" params={{ id: b.tripId }} className="text-indigo-600 dark:text-indigo-400">
+          <Link to="/trips/$id" params={{ id: b.tripId }} className="text-link">
             {dateIst(b.tripDate)}
           </Link>
         ) : (
@@ -68,12 +69,10 @@ function BellaPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">Bricks</h1>
-        <p className="text-xs text-gray-500">
-          One line per trip. Brick numbers are set on the trip; here you can only change the source name.
-        </p>
-      </div>
+      <PageHeader
+        title="Bricks"
+        description="One line per trip. Brick numbers are set on the trip; here you can only change the source name."
+      />
       <Card>
         <DataTable
           columns={columns}
@@ -88,9 +87,9 @@ function BellaPage() {
                 <span className="truncate text-sm font-semibold">{b.source}</span>
                 {b.sourceOwnership ? <Badge tone="green">own kiln</Badge> : <Badge>third-party</Badge>}
               </div>
-              <div className="mt-0.5 text-xs text-gray-500">
+              <div className="mt-0.5 text-xs text-fg-2">
                 {b.tripId ? (
-                  <Link to="/trips/$id" params={{ id: b.tripId }} className="text-indigo-600 dark:text-indigo-400">
+                  <Link to="/trips/$id" params={{ id: b.tripId }} className="text-link">
                     Trip {dateIst(b.tripDate)}
                   </Link>
                 ) : (
@@ -98,10 +97,10 @@ function BellaPage() {
                 )}{' '}
                 · {qty(b.quantity)} bricks
               </div>
-              <div className="mt-1 text-xs text-gray-500 tabular-nums">
+              <div className="mt-1 text-xs text-fg-2 tabular-nums">
                 Buy {money(b.costPrice)}/brick · Sell {money(b.sellingPrice)}/brick
               </div>
-              <div className="mt-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+              <div className="mt-2 border-t border-line pt-2">
                 <Button size="sm" variant="subtle" onClick={() => setEditing(b)} className="w-full">
                   Edit source
                 </Button>
@@ -113,7 +112,6 @@ function BellaPage() {
               searchValue={String(state.q ?? '')}
               onSearch={(v) => patch({ q: v })}
               searchPlaceholder="Source…"
-              searchWidth="w-40"
               activeCount={filterCount}
               onClear={clearFilters}
               resultTotal={data?.total}
@@ -158,7 +156,7 @@ function BellaModal({ bella, onClose }: { bella: BellaDto; onClose: () => void }
     onClose,
   })
   return (
-    <Modal open title="Edit bella source" onClose={onClose}>
+    <Dialog open title="Edit bella source" onClose={onClose}>
       <form
         className="space-y-3"
         onSubmit={(e) => {
@@ -167,7 +165,7 @@ function BellaModal({ bella, onClose }: { bella: BellaDto; onClose: () => void }
         }}
       >
         {error ? <ErrorNote error={error} /> : null}
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-fg-2">
           Quantity and prices live on the trip and stay locked here. Source details never affect the net margin.
         </p>
         <Field label="Source">
@@ -191,6 +189,6 @@ function BellaModal({ bella, onClose }: { bella: BellaDto; onClose: () => void }
           </Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   )
 }

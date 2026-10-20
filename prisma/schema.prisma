@@ -5,9 +5,10 @@
 // - Every business table carries user_id and a composite unique (id, user_id).
 //   Child rows reference parents through (parent_id, user_id) so the database
 //   itself refuses links across users.
-// - Derived values (revenue, totals, amount received/remaining, mileage) are
-//   NOT stored. They come from src/server/services/calc.ts and the SQL view
-//   "trip_financials" (see migrations), which implement the same rules.
+// - Derived values (revenue, totals, amount received/remaining, truck
+//   diesel/distance) are NOT stored. They come from src/server/services/calc.ts
+//   and the SQL views "trip_financials" / "truck_financials" (see migrations),
+//   which implement the same rules.
 // - CHECK constraints and the view live in the migration SQL.
 
 generator client {
@@ -105,12 +106,6 @@ model Truck {
   userId             String   @map("user_id")
   /// Normalised: trimmed, upper-cased, inner whitespace collapsed.
   registrationNumber String   @map("registration_number")
-  /// Manually entered total diesel spend (INR).
-  dieselCost         Decimal  @map("diesel_cost") @db.Decimal(14, 2)
-  /// Manually entered total diesel consumed (litres).
-  dieselLiters       Decimal  @map("diesel_liters") @db.Decimal(12, 2)
-  /// Manually entered total distance (km).
-  distanceTraveled   Decimal  @map("distance_traveled") @db.Decimal(12, 2)
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

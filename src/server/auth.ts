@@ -23,6 +23,16 @@ export function createAuth(db: Db, cfg: AuthConfig) {
       cfg.googleClientId && cfg.googleClientSecret
         ? { google: { clientId: cfg.googleClientId, clientSecret: cfg.googleClientSecret } }
         : {},
+    // Google sign-in links to an existing account with the same email. Local
+    // emails are never verified in this app, so the default check (local email
+    // must be verified) is disabled — Google itself vouches for the address.
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ['google'],
+        requireLocalEmailVerified: false,
+      },
+    },
     user: {
       additionalFields: {
         phone: { type: 'string', required: false, input: true },

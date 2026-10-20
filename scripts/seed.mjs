@@ -66,18 +66,15 @@ async function findOrCreate(path, matchKey, matchValue, body) {
   return req('POST', `/api/${path}`, body, 201)
 }
 
-const truck = async (registrationNumber, dieselCost, dieselLiters, distanceTraveled) =>
+const truck = async (registrationNumber) =>
   findOrCreate('trucks', 'registrationNumber', registrationNumber, {
     registrationNumber,
-    dieselCost,
-    dieselLiters,
-    distanceTraveled,
   })
 const driver = async (name, phone) => findOrCreate('drivers', 'name', name, { name, phone })
 const customer = async (name, phone, location) => findOrCreate('customers', 'name', name, { name, phone, location })
 
-const t1 = await truck('MH 12 AB 1234', '62000', '5200', '31200')
-const t2 = await truck('MH 14 CD 5678', '41000', '3600', '24800')
+const t1 = await truck('MH 12 AB 1234')
+const t2 = await truck('MH 14 CD 5678')
 const d1 = await driver('Raju Yadav', '+919822011111')
 const d2 = await driver('Santosh Pawar', '+919822022222')
 const c1 = await customer('Sharma Building Material', '+912531234567', 'Nashik')

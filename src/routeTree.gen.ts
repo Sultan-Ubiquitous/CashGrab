@@ -20,9 +20,10 @@ import { Route as CustomersIndexRouteImport } from './routes/customers/index'
 import { Route as DriversIndexRouteImport } from './routes/drivers/index'
 import { Route as PaymentsIndexRouteImport } from './routes/payments/index'
 import { Route as TripsIndexRouteImport } from './routes/trips/index'
-import { Route as TripsIdRouteImport } from './routes/trips/$id'
 import { Route as TripsNewRouteImport } from './routes/trips/new'
 import { Route as TrucksIndexRouteImport } from './routes/trucks/index'
+import { Route as TripsIdIndexRouteImport } from './routes/trips/$id/index'
+import { Route as TripsIdEditRouteImport } from './routes/trips/$id/edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -79,11 +80,6 @@ const TripsIndexRoute = TripsIndexRouteImport.update({
   path: '/trips/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TripsIdRoute = TripsIdRouteImport.update({
-  id: '/trips/$id',
-  path: '/trips/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TripsNewRoute = TripsNewRouteImport.update({
   id: '/trips/new',
   path: '/trips/new',
@@ -94,6 +90,16 @@ const TrucksIndexRoute = TrucksIndexRouteImport.update({
   path: '/trucks/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TripsIdIndexRoute = TripsIdIndexRouteImport.update({
+  id: '/trips/$id/',
+  path: '/trips/$id/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TripsIdEditRoute = TripsIdEditRouteImport.update({
+  id: '/trips/$id/edit',
+  path: '/trips/$id/edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -102,7 +108,6 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRoute
   '/signup': typeof SignupRoute
   '/api/$': typeof ApiSplatRoute
-  '/trips/$id': typeof TripsIdRoute
   '/trips/new': typeof TripsNewRoute
   '/bella/': typeof BellaIndexRoute
   '/customers/': typeof CustomersIndexRoute
@@ -110,6 +115,8 @@ export interface FileRoutesByFullPath {
   '/payments/': typeof PaymentsIndexRoute
   '/trips/': typeof TripsIndexRoute
   '/trucks/': typeof TrucksIndexRoute
+  '/trips/$id/edit': typeof TripsIdEditRoute
+  '/trips/$id/': typeof TripsIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,7 +125,6 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsRoute
   '/signup': typeof SignupRoute
   '/api/$': typeof ApiSplatRoute
-  '/trips/$id': typeof TripsIdRoute
   '/trips/new': typeof TripsNewRoute
   '/bella': typeof BellaIndexRoute
   '/customers': typeof CustomersIndexRoute
@@ -126,6 +132,8 @@ export interface FileRoutesByTo {
   '/payments': typeof PaymentsIndexRoute
   '/trips': typeof TripsIndexRoute
   '/trucks': typeof TrucksIndexRoute
+  '/trips/$id/edit': typeof TripsIdEditRoute
+  '/trips/$id': typeof TripsIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -135,7 +143,6 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRoute
   '/signup': typeof SignupRoute
   '/api/$': typeof ApiSplatRoute
-  '/trips/$id': typeof TripsIdRoute
   '/trips/new': typeof TripsNewRoute
   '/bella/': typeof BellaIndexRoute
   '/customers/': typeof CustomersIndexRoute
@@ -143,6 +150,8 @@ export interface FileRoutesById {
   '/payments/': typeof PaymentsIndexRoute
   '/trips/': typeof TripsIndexRoute
   '/trucks/': typeof TrucksIndexRoute
+  '/trips/$id/edit': typeof TripsIdEditRoute
+  '/trips/$id/': typeof TripsIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -153,7 +162,6 @@ export interface FileRouteTypes {
     | '/reports'
     | '/signup'
     | '/api/$'
-    | '/trips/$id'
     | '/trips/new'
     | '/bella/'
     | '/customers/'
@@ -161,6 +169,8 @@ export interface FileRouteTypes {
     | '/payments/'
     | '/trips/'
     | '/trucks/'
+    | '/trips/$id/edit'
+    | '/trips/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -169,7 +179,6 @@ export interface FileRouteTypes {
     | '/reports'
     | '/signup'
     | '/api/$'
-    | '/trips/$id'
     | '/trips/new'
     | '/bella'
     | '/customers'
@@ -177,6 +186,8 @@ export interface FileRouteTypes {
     | '/payments'
     | '/trips'
     | '/trucks'
+    | '/trips/$id/edit'
+    | '/trips/$id'
   id:
     | '__root__'
     | '/'
@@ -185,7 +196,6 @@ export interface FileRouteTypes {
     | '/reports'
     | '/signup'
     | '/api/$'
-    | '/trips/$id'
     | '/trips/new'
     | '/bella/'
     | '/customers/'
@@ -193,6 +203,8 @@ export interface FileRouteTypes {
     | '/payments/'
     | '/trips/'
     | '/trucks/'
+    | '/trips/$id/edit'
+    | '/trips/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -202,7 +214,6 @@ export interface RootRouteChildren {
   ReportsRoute: typeof ReportsRoute
   SignupRoute: typeof SignupRoute
   ApiSplatRoute: typeof ApiSplatRoute
-  TripsIdRoute: typeof TripsIdRoute
   TripsNewRoute: typeof TripsNewRoute
   BellaIndexRoute: typeof BellaIndexRoute
   CustomersIndexRoute: typeof CustomersIndexRoute
@@ -210,6 +221,8 @@ export interface RootRouteChildren {
   PaymentsIndexRoute: typeof PaymentsIndexRoute
   TripsIndexRoute: typeof TripsIndexRoute
   TrucksIndexRoute: typeof TrucksIndexRoute
+  TripsIdEditRoute: typeof TripsIdEditRoute
+  TripsIdIndexRoute: typeof TripsIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -291,13 +304,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TripsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/trips/$id': {
-      id: '/trips/$id'
-      path: '/trips/$id'
-      fullPath: '/trips/$id'
-      preLoaderRoute: typeof TripsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/trips/new': {
       id: '/trips/new'
       path: '/trips/new'
@@ -312,6 +318,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrucksIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/trips/$id/': {
+      id: '/trips/$id/'
+      path: '/trips/$id'
+      fullPath: '/trips/$id/'
+      preLoaderRoute: typeof TripsIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trips/$id/edit': {
+      id: '/trips/$id/edit'
+      path: '/trips/$id/edit'
+      fullPath: '/trips/$id/edit'
+      preLoaderRoute: typeof TripsIdEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -322,7 +342,6 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsRoute: ReportsRoute,
   SignupRoute: SignupRoute,
   ApiSplatRoute: ApiSplatRoute,
-  TripsIdRoute: TripsIdRoute,
   TripsNewRoute: TripsNewRoute,
   BellaIndexRoute: BellaIndexRoute,
   CustomersIndexRoute: CustomersIndexRoute,
@@ -330,6 +349,8 @@ const rootRouteChildren: RootRouteChildren = {
   PaymentsIndexRoute: PaymentsIndexRoute,
   TripsIndexRoute: TripsIndexRoute,
   TrucksIndexRoute: TrucksIndexRoute,
+  TripsIdEditRoute: TripsIdEditRoute,
+  TripsIdIndexRoute: TripsIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

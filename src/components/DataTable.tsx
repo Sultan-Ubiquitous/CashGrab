@@ -1,6 +1,8 @@
 import * as React from 'react'
 import type { PageDto } from '~/shared/schemas'
-import { Button, EmptyRow, ErrorNote, Field, Input, Select, Sheet, Spinner, cx } from './ui'
+import { Button, EmptyRow, ErrorNote, Input, Select, Skeleton, cx } from './ui'
+import { Dialog } from './Dialog'
+import { ArrowLeftIcon, ArrowRightIcon, ChevronDownIcon, ChevronUpIcon, SortIcon } from './icons'
 
 export interface Column<T> {
   key: string
@@ -21,7 +23,7 @@ export interface ListState {
 export type ListQuery = ListState & Record<string, string | number | undefined>
 
 /** Shared container styling for the mobile (<md) card layout. */
-export const cardCls = 'rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900'
+export const cardCls = 'card-flip rounded-lg p-3 shadow-card'
 
 export function DataTable<T extends { id: string }>({
   columns,
@@ -74,31 +76,33 @@ export function DataTable<T extends { id: string }>({
             aria-label={state.order === 'asc' ? 'Sort descending' : 'Sort ascending'}
             className="shrink-0"
           >
-            {state.order === 'asc' ? '▲' : '▼'}
+            {state.order === 'asc' ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
           </Button>
         </div>
       ) : null}
       {card ? (
         <div className="space-y-2 md:hidden">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
-            </div>
+            Array.from({ length: 4 }, (_, i) => (
+              <div key={`sk-${i}`} className={cardCls} aria-hidden="true">
+                <div className="flex items-center justify-between gap-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-14 rounded-full" />
+                </div>
+                <Skeleton className="mt-2 h-3.5 w-2/3" />
+                <Skeleton className="mt-2 h-3 w-full" />
+              </div>
+            ))
           ) : !page || page.items.length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-400">No records found</p>
+            <p className="py-8 text-center text-sm text-fg-muted">No records found</p>
           ) : (
             page.items.map((row) => <React.Fragment key={rowKey ? rowKey(row) : row.id}>{card(row)}</React.Fragment>)
           )}
         </div>
       ) : null}
-      <div
-        className={cx(
-          'overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800',
-          card && 'hidden md:block',
-        )}
-      >
+      <div className={cx('overflow-x-auto rounded-lg border border-line', card && 'hidden md:block')}>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-800/60 dark:text-gray-400">
+          <thead className="bg-subtle text-left text-xs uppercase tracking-[0.08em] text-fg-muted">
             <tr>
               {columns.map((c) => (
                 <th
@@ -110,14 +114,17 @@ export function DataTable<T extends { id: string }>({
                   )}
                 >
                   {c.sortable && onState && state ? (
-                    <button
-                      className="inline-flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-200"
-                      onClick={() => setSort(c.key)}
-                    >
+                    <button className="inline-flex items-center gap-1 hover:text-fg" onClick={() => setSort(c.key)}>
                       {c.header}
-                      <span className="text-[9px]">
-                        {state.sort === c.key ? (state.order === 'asc' ? '▲' : '▼') : '⇅'}
-                      </span>
+                      {state.sort === c.key ? (
+                        state.order === 'asc' ? (
+                          <ChevronUpIcon className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDownIcon className="h-3.5 w-3.5" />
+                        )
+                      ) : (
+                        <SortIcon className="h-3.5 w-3.5 opacity-40" />
+                      )}
                     </button>
                   ) : (
                     c.header
@@ -126,18 +133,20 @@ export function DataTable<T extends { id: string }>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+          <tbody className="divide-y divide-line">
             {loading ? (
-              <tr>
-                <td colSpan={columns.length} className="px-3 py-8 text-center">
-                  <Spinner />
-                </td>
-              </tr>
+              Array.from({ length: 6 }, (_, i) => (
+                <tr key={`sk-${i}`} aria-hidden="true">
+                  <td colSpan={columns.length} className="px-3 py-2.5">
+                    <Skeleton className="h-4 w-full max-w-prose" />
+                  </td>
+                </tr>
+              ))
             ) : page && page.items.length === 0 ? (
               <EmptyRow colSpan={columns.length} />
             ) : (
               page?.items.map((row) => (
-                <tr key={rowKey ? rowKey(row) : row.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
+                <tr key={rowKey ? rowKey(row) : row.id} className="hover:bg-subtle">
                   {columns.map((c) => (
                     <td
                       key={c.key}
@@ -157,9 +166,9 @@ export function DataTable<T extends { id: string }>({
         </table>
       </div>
       {page && onState && (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-fg-2">
           <span>
-            {page.total} record{page.total === 1 ? '' : 's'} · page {page.page} / {page.totalPages}
+            {page.total} record{page.total === 1 ? '' : 's'} · Page {page.page} of {page.totalPages}
           </span>
           <div className="flex gap-2">
             <Button
@@ -168,7 +177,8 @@ export function DataTable<T extends { id: string }>({
               disabled={page.page <= 1}
               onClick={() => onState({ page: page.page - 1 })}
             >
-              ← Prev
+              <ArrowLeftIcon className="h-4 w-4" />
+              Previous
             </Button>
             <Button
               variant="subtle"
@@ -176,7 +186,8 @@ export function DataTable<T extends { id: string }>({
               disabled={page.page >= page.totalPages}
               onClick={() => onState({ page: page.page + 1 })}
             >
-              Next →
+              Next
+              <ArrowRightIcon className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -186,15 +197,13 @@ export function DataTable<T extends { id: string }>({
 }
 
 /**
- * Responsive list toolbar: on phones a search box plus a "Filters (n)" button
- * that opens a bottom sheet; on md and up the classic inline filter row.
- * The same filter fields are reused in both (they apply live).
+ * List toolbar: an inline search box and a single "Filters" button that opens
+ * the filter fields in a dialog on every screen size. Filters apply live.
  */
 export function FilterBar({
   searchValue,
   onSearch,
   searchPlaceholder,
-  searchWidth = 'w-44',
   activeCount,
   onClear,
   resultTotal,
@@ -204,7 +213,6 @@ export function FilterBar({
   searchValue?: string
   onSearch?: (value: string) => void
   searchPlaceholder?: string
-  searchWidth?: string
   activeCount: number
   onClear: () => void
   resultTotal?: number
@@ -212,45 +220,33 @@ export function FilterBar({
   children: React.ReactNode
 }) {
   const [open, setOpen] = React.useState(false)
+  const close = React.useCallback(() => setOpen(false), [])
   return (
     <>
-      <div className="flex w-full items-center gap-2 md:hidden">
+      <div className="flex w-full items-center gap-2">
         {onSearch ? (
           <Input
             aria-label="Search"
             placeholder={searchPlaceholder ?? 'Search…'}
             value={searchValue ?? ''}
             onChange={(e) => onSearch(e.target.value)}
-            className="min-w-0 flex-1"
+            className="min-w-0 flex-1 md:max-w-xs"
           />
         ) : null}
         <Button variant="subtle" onClick={() => setOpen(true)} className={cx('shrink-0', !onSearch && 'w-full')}>
           Filters{activeCount > 0 ? ` (${activeCount})` : ''}
         </Button>
       </div>
-      <div className="hidden md:flex md:flex-wrap md:items-end md:gap-2">
-        {onSearch ? (
-          <Field label="Search">
-            <Input
-              placeholder={searchPlaceholder ?? 'Search…'}
-              value={searchValue ?? ''}
-              onChange={(e) => onSearch(e.target.value)}
-              className={searchWidth}
-            />
-          </Field>
-        ) : null}
-        {children}
-      </div>
-      <Sheet
+      <Dialog
         open={open}
         title={sheetTitle}
-        onClose={() => setOpen(false)}
+        onClose={close}
         footer={
           <div className="flex gap-2">
             <Button variant="subtle" onClick={onClear} className="flex-1">
               Clear
             </Button>
-            <Button onClick={() => setOpen(false)} className="flex-[2]">
+            <Button onClick={close} className="flex-[2]">
               {typeof resultTotal === 'number'
                 ? `Show ${resultTotal} result${resultTotal === 1 ? '' : 's'}`
                 : 'Show results'}
@@ -259,7 +255,7 @@ export function FilterBar({
         }
       >
         <div className="space-y-3">{children}</div>
-      </Sheet>
+      </Dialog>
     </>
   )
 }

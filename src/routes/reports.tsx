@@ -1,21 +1,20 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { RequireAuth } from '~/components/RequireAuth'
 import { MonthlyTable } from '~/components/MonthlyTable'
+import { PageHeader } from '~/components/PageHeader'
 import { FilterBar } from '~/components/DataTable'
 import { Badge, Button, Card, Field, Input, Select, Stat } from '~/components/ui'
 import { api, qs } from '~/lib/api'
+import { guardSession } from '~/lib/session'
 import { dateIst, money, qty } from '~/lib/format'
 import { useMasterOptions } from '~/lib/masterOptions'
 import type { MonthlyDto, TripTotalsDto } from '~/shared/schemas'
 
 export const Route = createFileRoute('/reports')({
-  component: () => (
-    <RequireAuth>
-      <ReportsPage />
-    </RequireAuth>
-  ),
+  beforeLoad: ({ context, location }) => guardSession(context, location.href),
+  head: () => ({ meta: [{ title: 'Reports · Quick Money' }] }),
+  component: ReportsPage,
 })
 
 function useFilters() {
@@ -45,10 +44,7 @@ function ReportsPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold">Reports</h1>
-        <p className="text-xs text-gray-500">What you see here is what gets downloaded.</p>
-      </div>
+      <PageHeader title="Reports" description="What you see here is what gets downloaded." />
 
       <Card title="Filters (change what you see and download)">
         <FilterBar activeCount={filterCount} onClear={clearFilters} sheetTitle="Report filters">
@@ -131,10 +127,10 @@ function ReportsPage() {
           ) : null
         }
       >
-        {monthly ? <MonthlyTable months={monthly.months} /> : <p className="text-sm text-gray-500">Loading…</p>}
+        {monthly ? <MonthlyTable months={monthly.months} /> : <p className="text-sm text-fg-2">Loading…</p>}
         {monthly && monthly.months.length > 0 ? (
           <div className="mt-3 flex justify-end text-sm tabular-nums">
-            <span className="text-gray-500">
+            <span className="text-fg-2">
               Period total: <b>{money(monthly.totals.total)}</b>
             </span>
           </div>
@@ -161,7 +157,7 @@ function ReportsPage() {
               <Button variant="subtle">Excel workbook</Button>
             </a>
           </div>
-          <div className="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+          <div className="flex flex-wrap items-end gap-3 border-t border-line pt-3">
             <Field label="One page only">
               <Select value={module} onChange={(e) => setModule(e.target.value)} className="w-40">
                 <option value="trips">Trips</option>
@@ -184,7 +180,7 @@ function ReportsPage() {
               <Button variant="subtle">Export XLSX</Button>
             </a>
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-fg-muted">
             Files are made straight from your records and include ids + foreign keys so datasets stay joinable. Text
             cells are formula-injection safe; amounts are exported as numbers with 2 decimals.
           </p>

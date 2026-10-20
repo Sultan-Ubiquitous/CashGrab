@@ -1,7 +1,8 @@
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Button, Card, ErrorNote, Field, Input, Modal, Select } from '~/components/ui'
+import { Button, Card, ErrorNote, Field, Input, Select } from '~/components/ui'
+import { Dialog } from '~/components/Dialog'
 import { api, errMessage } from '~/lib/api'
 import { todayIso } from '~/lib/format'
 import { useMasterOptions } from '~/lib/masterOptions'
@@ -25,9 +26,6 @@ interface NewCustomer {
 }
 interface NewTruck {
   registrationNumber: string
-  dieselCost: string
-  dieselLiters: string
-  distanceTraveled: string
 }
 interface NewDriver {
   name: string
@@ -190,8 +188,8 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
   const p = preview(form)
   const profitLine =
     p.margin >= 0
-      ? `You earn â‚¹${p.margin.toFixed(2)} on this trip.`
-      : `This trip loses â‚¹${Math.abs(p.margin).toFixed(2)}.`
+      ? `You earn ₹${p.margin.toFixed(2)} on this trip.`
+      : `This trip loses ₹${Math.abs(p.margin).toFixed(2)}.`
 
   return (
     <div className="space-y-4">
@@ -199,7 +197,7 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
       {error ? <ErrorNote error={error} /> : null}
 
       {step === 0 && (
-        <Card title="Step 1 of 3 â€” Trip">
+        <Card title="Trip details">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <MasterPicker
               label="Who is buying?"
@@ -229,14 +227,14 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
               <Input
                 value={form.startPoint}
                 onChange={(e) => set('startPoint', e.target.value)}
-                placeholder="Kiln village"
+                placeholder="Start place"
               />
             </Field>
             <Field label="To (delivery place)">
               <Input
                 value={form.endPoint}
                 onChange={(e) => set('endPoint', e.target.value)}
-                placeholder="Customer site"
+                placeholder="Delivery place"
               />
             </Field>
             <Field label="Distance (km)">
@@ -248,10 +246,10 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
 
       {step === 1 && (
         <Card
-          title="Step 2 of 3 â€” Bricks"
-          right={brickLocked ? <span className="text-xs text-amber-600">Locked â€” money already received</span> : null}
+          title="Bricks"
+          right={brickLocked ? <span className="text-xs text-warn">Locked after payment</span> : null}
         >
-          <p className="mb-3 text-xs text-gray-500">
+          <p className="mb-3 text-xs text-fg-2">
             {brickLocked
               ? 'These numbers cannot change now because money has been received for this trip.'
               : 'Write the brick details. They get fixed for this trip afterwards.'}
@@ -262,7 +260,7 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
                 disabled={brickLocked}
                 value={form.source}
                 onChange={(e) => set('source', e.target.value)}
-                placeholder="Kiln or supplier name"
+                placeholder="Source name"
               />
             </Field>
             <Field label="How many bricks?">
@@ -274,7 +272,7 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
                 placeholder="e.g. 1000"
               />
             </Field>
-            <Field label="Buying price for one brick (â‚¹)">
+            <Field label="Buying price per brick (₹)">
               <Input
                 disabled={brickLocked}
                 inputMode="decimal"
@@ -282,7 +280,7 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
                 onChange={(e) => set('costPrice', e.target.value)}
               />
             </Field>
-            <Field label="Selling price for one brick (â‚¹)">
+            <Field label="Selling price per brick (₹)">
               <Input
                 disabled={brickLocked}
                 inputMode="decimal"
@@ -320,19 +318,17 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
       )}
 
       {step === 2 && (
-        <Card title="Step 3 of 3 â€” Trip costs">
-          <p className="mb-3 text-xs text-gray-500">Write each cost. Put 0 where there is no cost.</p>
+        <Card title="Trip costs">
+          <p className="mb-3 text-xs text-fg-2">Write each cost. Put 0 where there is no cost.</p>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {COST_FIELDS.map(([k, label]) => (
-              <Field key={k} label={`${label} (â‚¹)`}>
+              <Field key={k} label={`${label} (₹)`}>
                 <Input inputMode="decimal" value={form.costs[k]} onChange={setCost(k)} />
               </Field>
             ))}
           </div>
-          <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm tabular-nums dark:bg-gray-800/60">
-            <span className={p.margin >= 0 ? 'font-semibold text-emerald-600' : 'font-semibold text-red-600'}>
-              {profitLine}
-            </span>
+          <div className="mt-4 rounded-lg bg-subtle p-3 text-sm tabular-nums">
+            <span className={p.margin >= 0 ? 'font-semibold text-pos' : 'font-semibold text-neg'}>{profitLine}</span>
           </div>
         </Card>
       )}
@@ -344,11 +340,11 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
           onClick={() => setStep((s) => Math.max(0, s - 1))}
           className="flex-1 md:flex-none"
         >
-          ← Back
+          Back
         </Button>
         {step < 2 ? (
           <Button onClick={next} className="flex-1 md:flex-none">
-            Next →
+            Next
           </Button>
         ) : (
           <Button onClick={() => save.mutate()} disabled={save.isPending} className="flex-1 md:flex-none">
@@ -389,27 +385,28 @@ export function TripForm({ trip, onDone }: { trip?: TripDetailDto; onDone?: () =
 }
 
 function StepsBar({ step, onGo }: { step: number; onGo: (s: number) => void }) {
-  const labels = ['1. Trip', '2. Bricks', '3. Costs']
+  const labels = ['Trip', 'Bricks', 'Costs']
   return (
-    <ol className="flex gap-2">
-      {labels.map((label, i) => (
-        <li key={label} className="flex-1">
-          <button
-            type="button"
-            onClick={() => onGo(i)}
-            className={`min-h-11 w-full rounded-lg border px-3 py-2 text-sm font-medium md:min-h-9 ${
-              i === step
-                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300'
-                : i < step
-                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                  : 'border-gray-200 text-gray-400 dark:border-gray-800'
-            }`}
-          >
-            {label} {i < step ? 'âœ“' : ''}
-          </button>
-        </li>
-      ))}
-    </ol>
+    <div className="space-y-1">
+      <p className="text-xs text-fg-2">
+        Step {step + 1} of {labels.length} · {labels[step]}
+      </p>
+      <ol className="flex gap-1.5">
+        {labels.map((label, i) => (
+          <li key={label} className="flex-1">
+            <button
+              type="button"
+              onClick={() => onGo(i)}
+              aria-label={`Step ${i + 1}: ${label}`}
+              aria-current={i === step ? 'step' : undefined}
+              className="flex w-full py-3"
+            >
+              <span className={`h-1 w-full rounded-full ${i <= step ? 'bg-primary' : 'bg-subtle-strong'}`} />
+            </button>
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }
 
@@ -437,13 +434,13 @@ function MasterPicker<T>({
             }}
             className="min-w-0 flex-1"
           >
-            <option value="">Chooseâ€¦</option>
+            <option value="">Choose…</option>
             {options.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.label}
               </option>
             ))}
-            {sel.fresh ? <option value="__new__">New (just added) âœ“</option> : null}
+            {sel.fresh ? <option value="__new__">New (just added)</option> : null}
           </Select>
           {onNew ? (
             <Button type="button" variant="subtle" onClick={onNew} title="Add new" className="shrink-0">
@@ -452,7 +449,7 @@ function MasterPicker<T>({
           ) : null}
         </div>
       </Field>
-      {sel.fresh ? <p className="text-[11px] text-emerald-600">New entry will be saved with this trip.</p> : null}
+      {sel.fresh ? <p className="text-[11px] text-pos">New entry will be saved with this trip.</p> : null}
     </div>
   )
 }
@@ -461,28 +458,28 @@ function NewCustomerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: 
   const [form, setForm] = React.useState<NewCustomer>({ name: '', phone: '', location: '' })
   const [err, setErr] = React.useState('')
   return (
-    <Modal open title="New customer" onClose={onClose}>
+    <Dialog open title="New customer" onClose={onClose}>
       <div className="space-y-3">
         {err ? <ErrorNote error={err} /> : null}
         <Field label="Customer name">
           <Input
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="e.g. Sharma Building Material"
+            placeholder="Customer name"
           />
         </Field>
         <Field label="Phone (if you have it)">
           <Input
             value={form.phone}
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="+91â€¦"
+            placeholder="+91…"
           />
         </Field>
         <Field label="Place / village">
           <Input
             value={form.location}
             onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-            placeholder="e.g. Nashik"
+            placeholder="Location"
           />
         </Field>
         <div className="flex justify-end gap-2">
@@ -506,55 +503,29 @@ function NewCustomerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: 
           </Button>
         </div>
       </div>
-    </Modal>
+    </Dialog>
   )
 }
 
 function NewTruckModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: NewTruck) => void }) {
   const [form, setForm] = React.useState<NewTruck>({
     registrationNumber: '',
-    dieselCost: '0',
-    dieselLiters: '0',
-    distanceTraveled: '0',
   })
   const [err, setErr] = React.useState('')
   return (
-    <Modal open title="New truck" onClose={onClose}>
+    <Dialog open title="New truck" onClose={onClose}>
       <div className="space-y-3">
         {err ? <ErrorNote error={err} /> : null}
         <Field label="Truck number">
           <Input
             value={form.registrationNumber}
             onChange={(e) => setForm((f) => ({ ...f, registrationNumber: e.target.value }))}
-            placeholder="e.g. MH 12 AB 1234"
+            placeholder="Registration number"
           />
         </Field>
-        <p className="text-[11px] text-gray-400">
-          The three readings below can be 0 for now. You can change them later on the Trucks page.
+        <p className="text-[11px] text-fg-muted">
+          Diesel cost and distance build up automatically from this truck's trips.
         </p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Field label="Diesel cost (â‚¹)">
-            <Input
-              inputMode="decimal"
-              value={form.dieselCost}
-              onChange={(e) => setForm((f) => ({ ...f, dieselCost: e.target.value }))}
-            />
-          </Field>
-          <Field label="Diesel (litres)">
-            <Input
-              inputMode="decimal"
-              value={form.dieselLiters}
-              onChange={(e) => setForm((f) => ({ ...f, dieselLiters: e.target.value }))}
-            />
-          </Field>
-          <Field label="Distance (km)">
-            <Input
-              inputMode="decimal"
-              value={form.distanceTraveled}
-              onChange={(e) => setForm((f) => ({ ...f, distanceTraveled: e.target.value }))}
-            />
-          </Field>
-        </div>
         <div className="flex justify-end gap-2">
           <Button variant="subtle" onClick={onClose}>
             Cancel
@@ -565,22 +536,14 @@ function NewTruckModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: New
                 setErr('Please write the truck number.')
                 return
               }
-              if (
-                !isMoneyStr(form.dieselCost) ||
-                !isMeasureStr(form.dieselLiters) ||
-                !isMeasureStr(form.distanceTraveled)
-              ) {
-                setErr('Please check the three readings (numbers only).')
-                return
-              }
-              onAdd({ ...form, registrationNumber: form.registrationNumber.trim() })
+              onAdd({ registrationNumber: form.registrationNumber.trim() })
             }}
           >
             Add
           </Button>
         </div>
       </div>
-    </Modal>
+    </Dialog>
   )
 }
 
@@ -588,21 +551,21 @@ function NewDriverModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: Ne
   const [form, setForm] = React.useState<NewDriver>({ name: '', phone: '' })
   const [err, setErr] = React.useState('')
   return (
-    <Modal open title="New driver" onClose={onClose}>
+    <Dialog open title="New driver" onClose={onClose}>
       <div className="space-y-3">
         {err ? <ErrorNote error={err} /> : null}
         <Field label="Driver name">
           <Input
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="e.g. Raju"
+            placeholder="Driver name"
           />
         </Field>
         <Field label="Phone">
           <Input
             value={form.phone}
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="+91â€¦"
+            placeholder="+91…"
           />
         </Field>
         <div className="flex justify-end gap-2">
@@ -626,6 +589,6 @@ function NewDriverModal({ onClose, onAdd }: { onClose: () => void; onAdd: (v: Ne
           </Button>
         </div>
       </div>
-    </Modal>
+    </Dialog>
   )
 }

@@ -17,12 +17,12 @@ import type { DbOrTx } from '../db'
 import { dbDateToIso } from '~/shared/dates'
 import { money, moneyOrNull } from '../lib/money'
 import { bellaWhere } from '../services/bella'
-import { truckCostPerKm, truckMileage } from '../services/calc'
+import { truckCostPerKm } from '../services/calc'
 import { customerWhere } from '../services/customers'
 import { driverWhere } from '../services/drivers'
 import { paymentWhere } from '../services/payments'
 import { tripRowBatches, type TripSqlRow } from '../services/tripQuery'
-import { truckWhere } from '../services/trucks'
+import { truckBatches } from '../services/trucks'
 import type { CellValue, Column } from './cells'
 
 export const BATCH_SIZE = 1000
@@ -63,28 +63,21 @@ export function trucksDataset(db: DbOrTx, userId: string, f: z.infer<typeof mast
       col('id', 'text'),
       col('registration_number', 'text'),
       col('diesel_cost', 'money'),
-      col('diesel_liters', 'decimal'),
       col('distance_traveled', 'decimal'),
-      col('mileage_km_per_liter', 'decimal'),
       col('cost_per_km', 'money'),
       col('trip_count', 'int'),
       created,
     ],
     rows: async function* () {
-      const where = truckWhere(userId, f)
-      for await (const batch of cursorBatches((p) =>
-        db.truck.findMany({ where, orderBy: ASC, include: { _count: { select: { trips: true } } }, ...p }),
-      )) {
+      for await (const batch of truckBatches(db, userId, f, BATCH_SIZE)) {
         yield batch.map((t) => ({
           id: t.id,
-          registration_number: t.registrationNumber,
-          diesel_cost: money(t.dieselCost),
-          diesel_liters: money(t.dieselLiters),
-          distance_traveled: money(t.distanceTraveled),
-          mileage_km_per_liter: truckMileage(t.distanceTraveled, t.dieselLiters),
-          cost_per_km: truckCostPerKm(t.dieselCost, t.distanceTraveled),
-          trip_count: t._count.trips,
-          created_at_ist: t.createdAt,
+          registration_number: t.registration_number,
+          diesel_cost: money(t.diesel_cost),
+          distance_traveled: money(t.distance_traveled),
+          cost_per_km: truckCostPerKm(t.diesel_cost, t.distance_traveled),
+          trip_count: Number(t.trip_count),
+          created_at_ist: new Date(t.created_at),
         }))
       }
     },

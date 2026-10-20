@@ -2,6 +2,7 @@ import * as React from 'react'
 import { money, monthLabel } from '~/lib/format'
 import type { DashboardDto } from '~/shared/schemas'
 import { cardCls } from './DataTable'
+import { ChevronDownIcon, ChevronUpIcon } from './icons'
 
 type MonthRow = DashboardDto['monthly']['months'][number]
 
@@ -10,14 +11,14 @@ export function MonthlyTable({ months }: { months: DashboardDto['monthly']['mont
     <>
       <div className="space-y-2 md:hidden">
         {months.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-400">No trips in this period</p>
+          <p className="py-6 text-center text-sm text-fg-muted">No trips in this period</p>
         ) : (
           months.map((m) => <MonthCard key={m.month} m={m} />)
         )}
       </div>
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
+          <thead className="text-left text-xs uppercase tracking-[0.08em] text-fg-muted">
             <tr>
               <th className="px-3 py-2">Month</th>
               <th className="px-3 py-2 text-right">Diesel</th>
@@ -31,10 +32,10 @@ export function MonthlyTable({ months }: { months: DashboardDto['monthly']['mont
               <th className="px-3 py-2 text-right">Change</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 tabular-nums dark:divide-gray-800">
+          <tbody className="divide-y divide-line tabular-nums">
             {months.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-center text-sm text-gray-400">
+                <td colSpan={10} className="px-3 py-6 text-center text-sm text-fg-muted">
                   No trips in this period
                 </td>
               </tr>
@@ -54,7 +55,7 @@ export function MonthlyTable({ months }: { months: DashboardDto['monthly']['mont
                     {m.changeFromPrevious === null ? (
                       '—'
                     ) : (
-                      <span className={Number(m.changeFromPrevious) >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+                      <span className={Number(m.changeFromPrevious) >= 0 ? 'text-pos' : 'text-neg'}>
                         {money(m.changeFromPrevious)}
                       </span>
                     )}
@@ -92,18 +93,20 @@ function MonthCard({ m }: { m: MonthRow }) {
         <span className="flex items-center gap-2 text-sm tabular-nums">
           <b>{money(m.total)}</b>
           {m.changeFromPrevious === null ? null : (
-            <span className={Number(m.changeFromPrevious) >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+            <span className={Number(m.changeFromPrevious) >= 0 ? 'text-pos' : 'text-neg'}>
               {money(m.changeFromPrevious)}
             </span>
           )}
-          <span className="text-[10px] text-gray-400">{open ? '▲' : '▼'}</span>
+          <span className="text-fg-muted">
+            {open ? <ChevronUpIcon className="h-3.5 w-3.5" /> : <ChevronDownIcon className="h-3.5 w-3.5" />}
+          </span>
         </span>
       </button>
       {open ? (
-        <dl className="mt-1 space-y-1 border-t border-dashed border-gray-200 pt-2 text-sm dark:border-gray-800">
+        <dl className="mt-1 space-y-1 border-t border-dashed border-line pt-2 text-sm">
           {parts.map(([label, v]) => (
             <div key={label} className="flex justify-between gap-2">
-              <dt className="text-gray-500">{label}</dt>
+              <dt className="text-fg-2">{label}</dt>
               <dd className="tabular-nums">{money(v)}</dd>
             </div>
           ))}

@@ -1,27 +1,272 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss' source('../');
 
-@layer base {
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+/* ---- Design tokens (light) ---- */
+:root {
+  color-scheme: light;
+
+  --canvas: #ffffff;
+  --surface: #ffffff;
+  --fg: #070b18;
+  --fg-2: rgba(7, 11, 24, 0.82);
+  --fg-muted: rgba(7, 11, 24, 0.66);
+  --line: rgba(7, 11, 24, 0.2);
+  --line-control: rgba(7, 11, 24, 0.65);
+  --subtle: rgba(7, 11, 24, 0.05);
+  --subtle-strong: rgba(7, 11, 24, 0.09);
+
+  --primary: #070b18;
+  --primary-fg: #ffffff;
+  --accent: #1a3358;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(26, 51, 88, 0.08);
+  --link: #1a3358;
+
+  --pos: #047857;
+  --neg: #b91c1c;
+  --warn: #92400e;
+  --pos-soft: rgba(4, 120, 87, 0.1);
+  --neg-soft: rgba(185, 28, 28, 0.1);
+  --warn-soft: rgba(146, 64, 14, 0.12);
+
+  /* Elevation: neutral tints, single downward light source. */
+  --elev-card: 0 1px 2px rgba(7, 11, 24, 0.05), 0 10px 24px -10px rgba(7, 11, 24, 0.16);
+  --elev-bar: 0 2px 8px -4px rgba(7, 11, 24, 0.25);
+  --elev-bar-b: 0 -2px 10px -4px rgba(7, 11, 24, 0.25);
+  --elev-float: 0 24px 48px -12px rgba(7, 11, 24, 0.35);
+  --elev-btn: 0 1px 2px rgba(7, 11, 24, 0.18);
+}
+
+/* ---- Design tokens (dark) ----
+   Active when the OS prefers dark (unless explicitly overridden to light)
+   or when the user picked dark. Borders use deep black-navy seams, not white. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --canvas: #070b18;
+    --surface: #0b1120;
+    --fg: #ffffff;
+    --fg-2: rgba(255, 255, 255, 0.84);
+    --fg-muted: rgba(255, 255, 255, 0.68);
+    --line: rgba(2, 6, 23, 0.8);
+    --line-control: rgba(2, 6, 23, 0.9);
+    --subtle: rgba(255, 255, 255, 0.06);
+    --subtle-strong: rgba(255, 255, 255, 0.12);
+
+    --primary: #ffffff;
+    --primary-fg: #070b18;
+    --accent: #1a3358;
+    --accent-fg: #ffffff;
+    --accent-soft: rgba(26, 51, 88, 0.45);
+    --link: #ffffff;
+
+    --pos: #34d399;
+    --neg: #f87171;
+    --warn: #fbbf24;
+    --pos-soft: rgba(52, 211, 153, 0.16);
+    --neg-soft: rgba(248, 113, 113, 0.16);
+    --warn-soft: rgba(251, 191, 36, 0.16);
+
+    --elev-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 24px -10px rgba(0, 0, 0, 0.65);
+    --elev-bar: 0 2px 8px -4px rgba(0, 0, 0, 0.6);
+    --elev-bar-b: 0 -2px 10px -4px rgba(0, 0, 0, 0.6);
+    --elev-float: 0 24px 48px -12px rgba(0, 0, 0, 0.75);
+    --elev-btn: 0 1px 2px rgba(0, 0, 0, 0.55);
   }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --canvas: #070b18;
+  --surface: #0b1120;
+  --fg: #ffffff;
+  --fg-2: rgba(255, 255, 255, 0.84);
+  --fg-muted: rgba(255, 255, 255, 0.68);
+  --line: rgba(2, 6, 23, 0.8);
+  --line-control: rgba(2, 6, 23, 0.9);
+  --subtle: rgba(255, 255, 255, 0.06);
+  --subtle-strong: rgba(255, 255, 255, 0.12);
+
+  --primary: #ffffff;
+  --primary-fg: #070b18;
+  --accent: #1a3358;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(26, 51, 88, 0.45);
+  --link: #ffffff;
+
+  --pos: #34d399;
+  --neg: #f87171;
+  --warn: #fbbf24;
+  --pos-soft: rgba(52, 211, 153, 0.16);
+  --neg-soft: rgba(248, 113, 113, 0.16);
+  --warn-soft: rgba(251, 191, 36, 0.16);
+
+  --elev-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 24px -10px rgba(0, 0, 0, 0.65);
+  --elev-bar: 0 2px 8px -4px rgba(0, 0, 0, 0.6);
+  --elev-bar-b: 0 -2px 10px -4px rgba(0, 0, 0, 0.6);
+  --elev-float: 0 24px 48px -12px rgba(0, 0, 0, 0.75);
+  --elev-btn: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+/* ---- Inverted card scope ----
+   Card content renders with the opposite theme's tokens: navy card with
+   light text on the light page, white card with dark text on the dark page.
+   Set the vars on the card root so every descendant utility resolves the
+   flipped values; background/color are set here too because inputs and
+   selects inherit their text color from the nearest ancestor. */
+.card-flip {
+  --canvas: #070b18;
+  --surface: #070b18;
+  --fg: #ffffff;
+  --fg-2: rgba(255, 255, 255, 0.84);
+  --fg-muted: rgba(255, 255, 255, 0.68);
+  --line: rgba(255, 255, 255, 0.22);
+  --line-control: rgba(255, 255, 255, 0.38);
+  --subtle: rgba(255, 255, 255, 0.07);
+  --subtle-strong: rgba(255, 255, 255, 0.13);
+
+  --primary: #ffffff;
+  --primary-fg: #070b18;
+  --accent: #1a3358;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.14);
+  --link: #ffffff;
+
+  --pos: #34d399;
+  --neg: #f87171;
+  --warn: #fbbf24;
+  --pos-soft: rgba(52, 211, 153, 0.16);
+  --neg-soft: rgba(248, 113, 113, 0.16);
+  --warn-soft: rgba(251, 191, 36, 0.16);
+
+  background: var(--surface);
+  color: var(--fg);
+}
+
+/* Page in dark (OS-default or explicit): cards flip to white. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .card-flip {
+    --canvas: #ffffff;
+    --surface: #ffffff;
+    --fg: #070b18;
+    --fg-2: rgba(7, 11, 24, 0.82);
+    --fg-muted: rgba(7, 11, 24, 0.66);
+    --line: rgba(7, 11, 24, 0.2);
+    --line-control: rgba(7, 11, 24, 0.65);
+    --subtle: rgba(7, 11, 24, 0.05);
+    --subtle-strong: rgba(7, 11, 24, 0.09);
+
+    --primary: #070b18;
+    --primary-fg: #ffffff;
+    --accent: #1a3358;
+    --accent-fg: #ffffff;
+    --accent-soft: rgba(26, 51, 88, 0.08);
+    --link: #1a3358;
+
+    --pos: #047857;
+    --neg: #b91c1c;
+    --warn: #92400e;
+    --pos-soft: rgba(4, 120, 87, 0.1);
+    --neg-soft: rgba(185, 28, 28, 0.1);
+    --warn-soft: rgba(146, 64, 14, 0.12);
+  }
+}
+
+:root[data-theme='dark'] .card-flip {
+  --canvas: #ffffff;
+  --surface: #ffffff;
+  --fg: #070b18;
+  --fg-2: rgba(7, 11, 24, 0.82);
+  --fg-muted: rgba(7, 11, 24, 0.66);
+  --line: rgba(7, 11, 24, 0.2);
+  --line-control: rgba(7, 11, 24, 0.65);
+  --subtle: rgba(7, 11, 24, 0.05);
+  --subtle-strong: rgba(7, 11, 24, 0.09);
+
+  --primary: #070b18;
+  --primary-fg: #ffffff;
+  --accent: #1a3358;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(26, 51, 88, 0.08);
+  --link: #1a3358;
+
+  --pos: #047857;
+  --neg: #b91c1c;
+  --warn: #92400e;
+  --pos-soft: rgba(4, 120, 87, 0.1);
+  --neg-soft: rgba(185, 28, 28, 0.1);
+  --warn-soft: rgba(146, 64, 14, 0.12);
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-muted: var(--fg-muted);
+  --color-line: var(--line);
+  --color-line-control: var(--line-control);
+  --color-subtle: var(--subtle);
+  --color-subtle-strong: var(--subtle-strong);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-link: var(--link);
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+  --color-warn: var(--warn);
+  --color-pos-soft: var(--pos-soft);
+  --color-neg-soft: var(--neg-soft);
+  --color-warn-soft: var(--warn-soft);
+
+  /* Elevation utilities: shadow-card / shadow-bar / shadow-bar-b / shadow-float / shadow-btn */
+  --shadow-card: var(--elev-card);
+  --shadow-bar: var(--elev-bar);
+  --shadow-bar-b: var(--elev-bar-b);
+  --shadow-float: var(--elev-float);
+  --shadow-btn: var(--elev-btn);
+
+  /* 13px metadata per type scale. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.4;
+
+  /* 6-10px radii for controls and panels. */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.625rem;
 }
 
 @layer base {
   html {
-    color-scheme: light dark;
     -webkit-tap-highlight-color: transparent;
   }
 
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+  body {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    @apply bg-canvas text-fg;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
   }
 
   button,
@@ -30,17 +275,14 @@
     touch-action: manipulation;
   }
 
-  * {
-    @apply border-gray-200 dark:border-gray-800;
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 
-  html,
-  body {
-    @apply text-gray-900 bg-gray-50 dark:bg-gray-950 dark:text-gray-200;
-  }
-
-  .using-mouse * {
-    outline: none !important;
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-fg);
   }
 }
 

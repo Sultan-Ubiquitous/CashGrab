@@ -1,20 +1,20 @@
 import * as React from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { DataTable, FilterBar, cardCls, useListState, type Column } from '~/components/DataTable'
-import { RequireAuth } from '~/components/RequireAuth'
-import { Button, Card, ErrorNote, Field, Input, Modal } from '~/components/ui'
+import { PageHeader } from '~/components/PageHeader'
+import { Button, Card, ErrorNote, Field, Input } from '~/components/ui'
+import { Dialog } from '~/components/Dialog'
 import { api, errMessage, qs } from '~/lib/api'
+import { guardSession } from '~/lib/session'
 import { dateTimeIst } from '~/lib/format'
 import { useEntitySave } from '~/lib/useEntitySave'
 import type { CustomerDto, PageDto } from '~/shared/schemas'
 
 export const Route = createFileRoute('/customers/')({
-  component: () => (
-    <RequireAuth>
-      <CustomersPage />
-    </RequireAuth>
-  ),
+  beforeLoad: ({ context, location }) => guardSession(context, location.href),
+  head: () => ({ meta: [{ title: 'Customers · Quick Money' }] }),
+  component: CustomersPage,
 })
 
 function CustomersPage() {
@@ -25,6 +25,7 @@ function CustomersPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['customers', state],
     queryFn: () => api<PageDto<CustomerDto>>('GET', `/customers${qs(state)}`),
+    placeholderData: keepPreviousData,
   })
   const del = useMutation({
     mutationFn: (id: string) => api('DELETE', `/customers/${id}`),
@@ -41,7 +42,7 @@ function CustomersPage() {
       sortable: true,
       align: 'center',
       render: (c) => (
-        <Link className="text-indigo-600 dark:text-indigo-400" to="/trips" search={{ customerId: c.id }}>
+        <Link className="text-link" to="/trips" search={{ customerId: c.id }}>
           {c.tripCount}
         </Link>
       ),
@@ -58,7 +59,7 @@ function CustomersPage() {
           <Button
             size="sm"
             variant="ghost"
-            className="text-red-600"
+            className="text-neg"
             onClick={() => confirm(`Delete ${c.name}?`) && del.mutate(c.id)}
           >
             Delete
@@ -73,11 +74,8 @@ function CustomersPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">Customers</h1>
-        <Button onClick={() => setEditing('new')}>+ Add customer</Button>
-      </div>
-      {del.error ? <div className="text-xs text-red-600">{errMessage(del.error)}</div> : null}
+      <PageHeader title="Customers" action={<Button onClick={() => setEditing('new')}>Add customer</Button>} />
+      {del.error ? <div className="text-xs text-neg">{errMessage(del.error)}</div> : null}
       <Card>
         <DataTable
           columns={columns}
@@ -91,27 +89,23 @@ function CustomersPage() {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold">{c.name}</span>
                 {c.phone ? (
-                  <a href={`tel:${c.phone}`} className="text-sm text-indigo-600 dark:text-indigo-400">
+                  <a href={`tel:${c.phone}`} className="font-mono text-sm text-link">
                     {c.phone}
                   </a>
                 ) : null}
               </div>
-              <div className="mt-0.5 text-xs text-gray-500">{c.location}</div>
-              <Link
-                className="mt-1 block text-xs text-indigo-600 dark:text-indigo-400"
-                to="/trips"
-                search={{ customerId: c.id }}
-              >
-                {c.tripCount} trip{c.tripCount === 1 ? '' : 's'} →
+              <div className="mt-0.5 text-xs text-fg-2">{c.location}</div>
+              <Link className="mt-1 block text-xs text-link" to="/trips" search={{ customerId: c.id }}>
+                {c.tripCount} trip{c.tripCount === 1 ? '' : 's'}
               </Link>
-              <div className="mt-2 flex gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+              <div className="mt-2 flex gap-2 border-t border-line pt-2">
                 <Button size="sm" variant="subtle" onClick={() => setEditing(c)} className="flex-1">
                   Edit
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="flex-1 text-red-600"
+                  className="flex-1 text-neg"
                   onClick={() => confirm(`Delete ${c.name}?`) && del.mutate(c.id)}
                 >
                   Delete
@@ -124,7 +118,6 @@ function CustomersPage() {
               searchValue={String(state.q ?? '')}
               onSearch={(v) => patch({ q: v })}
               searchPlaceholder="Name, phone, location…"
-              searchWidth="w-52"
               activeCount={filterCount}
               onClear={clearFilters}
               resultTotal={data?.total}
@@ -164,7 +157,7 @@ function CustomerModal({ customer, onClose }: { customer: CustomerDto | null; on
     onClose,
   })
   return (
-    <Modal open title={customer ? 'Edit customer' : 'Add customer'} onClose={onClose}>
+    <Dialog open title={customer ? 'Edit customer' : 'Add customer'} onClose={onClose}>
       <form
         className="space-y-3"
         onSubmit={(e) => {
@@ -199,6 +192,6 @@ function CustomerModal({ customer, onClose }: { customer: CustomerDto | null; on
           </Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   )
 }

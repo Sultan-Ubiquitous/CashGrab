@@ -1,20 +1,20 @@
 import * as React from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { DataTable, FilterBar, cardCls, useListState, type Column } from '~/components/DataTable'
-import { RequireAuth } from '~/components/RequireAuth'
-import { Button, Card, ErrorNote, Field, Input, Modal } from '~/components/ui'
+import { PageHeader } from '~/components/PageHeader'
+import { Button, Card, ErrorNote, Field, Input } from '~/components/ui'
+import { Dialog } from '~/components/Dialog'
 import { api, errMessage, qs } from '~/lib/api'
+import { guardSession } from '~/lib/session'
 import { dateTimeIst } from '~/lib/format'
 import { useEntitySave } from '~/lib/useEntitySave'
 import type { DriverDto, PageDto } from '~/shared/schemas'
 
 export const Route = createFileRoute('/drivers/')({
-  component: () => (
-    <RequireAuth>
-      <DriversPage />
-    </RequireAuth>
-  ),
+  beforeLoad: ({ context, location }) => guardSession(context, location.href),
+  head: () => ({ meta: [{ title: 'Drivers · Quick Money' }] }),
+  component: DriversPage,
 })
 
 function DriversPage() {
@@ -25,6 +25,7 @@ function DriversPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['drivers', state],
     queryFn: () => api<PageDto<DriverDto>>('GET', `/drivers${qs(state)}`),
+    placeholderData: keepPreviousData,
   })
   const del = useMutation({
     mutationFn: (id: string) => api('DELETE', `/drivers/${id}`),
@@ -40,7 +41,7 @@ function DriversPage() {
       sortable: true,
       align: 'center',
       render: (d) => (
-        <Link className="text-indigo-600 dark:text-indigo-400" to="/trips" search={{ driverId: d.id }}>
+        <Link className="text-link" to="/trips" search={{ driverId: d.id }}>
           {d.tripCount}
         </Link>
       ),
@@ -57,7 +58,7 @@ function DriversPage() {
           <Button
             size="sm"
             variant="ghost"
-            className="text-red-600"
+            className="text-neg"
             onClick={() => confirm(`Delete ${d.name}?`) && del.mutate(d.id)}
           >
             Delete
@@ -72,11 +73,8 @@ function DriversPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">Drivers</h1>
-        <Button onClick={() => setEditing('new')}>+ Add driver</Button>
-      </div>
-      {del.error ? <div className="text-xs text-red-600">{errMessage(del.error)}</div> : null}
+      <PageHeader title="Drivers" action={<Button onClick={() => setEditing('new')}>Add driver</Button>} />
+      {del.error ? <div className="text-xs text-neg">{errMessage(del.error)}</div> : null}
       <Card>
         <DataTable
           columns={columns}
@@ -89,25 +87,21 @@ function DriversPage() {
             <div className={cardCls}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold">{d.name}</span>
-                <a href={`tel:${d.phone}`} className="text-sm text-indigo-600 dark:text-indigo-400">
+                <a href={`tel:${d.phone}`} className="font-mono text-sm text-link">
                   {d.phone}
                 </a>
               </div>
-              <Link
-                className="mt-1 block text-xs text-indigo-600 dark:text-indigo-400"
-                to="/trips"
-                search={{ driverId: d.id }}
-              >
-                {d.tripCount} trip{d.tripCount === 1 ? '' : 's'} →
+              <Link className="mt-1 block text-xs text-link" to="/trips" search={{ driverId: d.id }}>
+                {d.tripCount} trip{d.tripCount === 1 ? '' : 's'}
               </Link>
-              <div className="mt-2 flex gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+              <div className="mt-2 flex gap-2 border-t border-line pt-2">
                 <Button size="sm" variant="subtle" onClick={() => setEditing(d)} className="flex-1">
                   Edit
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="flex-1 text-red-600"
+                  className="flex-1 text-neg"
                   onClick={() => confirm(`Delete ${d.name}?`) && del.mutate(d.id)}
                 >
                   Delete
@@ -120,7 +114,6 @@ function DriversPage() {
               searchValue={String(state.q ?? '')}
               onSearch={(v) => patch({ q: v })}
               searchPlaceholder="Name or phone…"
-              searchWidth="w-44"
               activeCount={filterCount}
               onClear={clearFilters}
               resultTotal={data?.total}
@@ -155,7 +148,7 @@ function DriverModal({ driver, onClose }: { driver: DriverDto | null; onClose: (
     onClose,
   })
   return (
-    <Modal open title={driver ? 'Edit driver' : 'Add driver'} onClose={onClose}>
+    <Dialog open title={driver ? 'Edit driver' : 'Add driver'} onClose={onClose}>
       <form
         className="space-y-3"
         onSubmit={(e) => {
@@ -184,6 +177,6 @@ function DriverModal({ driver, onClose }: { driver: DriverDto | null; onClose: (
           </Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   )
 }

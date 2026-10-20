@@ -15,10 +15,7 @@ export const signedMoneyIn = z.string().trim().regex(SIGNED_MONEY_RE, 'Enter an 
 // Non-negative and contains a non-zero digit => strictly positive (no float math).
 export const positiveMoneyIn = moneyIn.refine((v) => /[1-9]/.test(v), 'Amount must be greater than 0')
 /** km, litres: non-negative, 2 decimals, max 10 integer digits. */
-export const measureIn = z
-  .string()
-  .trim()
-  .regex(MEASURE_RE, 'Enter a non-negative number with at most 2 decimals')
+export const measureIn = z.string().trim().regex(MEASURE_RE, 'Enter a non-negative number with at most 2 decimals')
 export const isoDate = z.string().refine(isValidIsoDate, 'Use a valid date (YYYY-MM-DD)')
 export const id = z.string().trim().min(1).max(64)
 const text = (max: number) => z.string().trim().min(1, 'Required').max(max)
@@ -37,9 +34,6 @@ const boolQuery = z
 // ---------------------------------------------------------------------------
 export const truckInput = z.object({
   registrationNumber: text(20),
-  dieselCost: moneyIn,
-  dieselLiters: measureIn,
-  distanceTraveled: measureIn,
 })
 export const truckUpdate = truckInput.partial()
 
@@ -232,9 +226,7 @@ export const truckOut = z.object({
   id: z.string(),
   registrationNumber: z.string(),
   dieselCost: moneyOut,
-  dieselLiters: moneyOut,
   distanceTraveled: moneyOut,
-  mileageKmPerLiter: moneyOut.nullable(),
   costPerKm: moneyOut.nullable(),
   tripCount: z.number().int(),
   createdAt: tsOut,
@@ -420,5 +412,7 @@ export const meOut = z.object({
   username: z.string().nullable(),
   phone: z.string().nullable(),
   image: z.string().nullable(),
+  hasPassword: z.boolean(),
+  googleLinked: z.boolean(),
 })
 export type MeDto = z.infer<typeof meOut>

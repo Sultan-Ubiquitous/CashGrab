@@ -6,14 +6,21 @@ import { AppShell } from '~/components/AppShell'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
 import type { RouterContext } from '~/router'
+import { sessionQuery } from '~/lib/session'
+import { THEME_BOOTSTRAP } from '~/lib/theme'
 import appCss from '~/styles/app.css?url'
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  // Resolved before any page renders (on the server for first load), so route
+  // guards and the shell read the same session with no skeleton flash.
+  beforeLoad: async ({ context }) => ({
+    session: await context.queryClient.ensureQueryData(sessionQuery),
+  }),
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'Quick Money — Truck & Bella business' },
+      { title: 'Quick Money' },
     ],
     links: [
       { rel: 'stylesheet', href: appCss },
@@ -27,15 +34,16 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-  const { queryClient } = Route.useRouteContext()
+  const { queryClient, session } = Route.useRouteContext()
   return (
     <html>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
         <HeadContent />
       </head>
       <body>
         <QueryClientProvider client={queryClient}>
-          <AppShell>{children}</AppShell>
+          <AppShell session={session}>{children}</AppShell>
         </QueryClientProvider>
         <Scripts />
       </body>

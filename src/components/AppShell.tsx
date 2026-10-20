@@ -1,129 +1,167 @@
 import * as React from 'react'
-import { Link, useLocation, useNavigate } from '@tanstack/react-router'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { authClient } from '~/lib/auth-client'
-import { api } from '~/lib/api'
-import type { MeDto } from '~/shared/schemas'
-import { Button, Sheet } from './ui'
+import type { SessionData } from '~/lib/session'
+import { Button, cx } from './ui'
+import { Dialog } from './Dialog'
+import {
+  BricksIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CustomersIcon,
+  DriverIcon,
+  HomeIcon,
+  LogOutIcon,
+  MoreIcon,
+  PaymentsIcon,
+  ProfileIcon,
+  ReportsIcon,
+  TripsIcon,
+  TruckIcon,
+} from './icons'
 
-const NAV = [
-  { to: '/', label: 'Home', icon: '▦' },
-  { to: '/trips', label: 'Trips', icon: '🚚' },
-  { to: '/bella', label: 'Bricks', icon: '🧱' },
-  { to: '/payments', label: 'Money in', icon: '₹' },
-  { to: '/trucks', label: 'Trucks', icon: '🚛' },
-  { to: '/drivers', label: 'Drivers', icon: '🧑‍✈️' },
-  { to: '/customers', label: 'Customers', icon: '👥' },
-  { to: '/reports', label: 'Reports', icon: '📊' },
-  { to: '/profile', label: 'Profile', icon: '👤' },
-] as const
+type NavItem = { to: string; label: string; icon: React.ComponentType<{ className?: string }> }
 
-/** Primary thumb-reach destinations. Everything else lives in the More sheet. */
-const TABS = [
-  { to: '/', label: 'Home', icon: '▦', exact: true },
-  { to: '/trips', label: 'Trips', icon: '🚚', exact: false },
-  { to: '/payments', label: 'Money in', icon: '₹', exact: false },
-] as const
+/** Desktop sidebar: the daily work, then the master records under "Manage". */
+const PRIMARY_NAV: NavItem[] = [
+  { to: '/', label: 'Home', icon: HomeIcon },
+  { to: '/trips', label: 'Trips', icon: TripsIcon },
+  { to: '/bella', label: 'Bricks', icon: BricksIcon },
+  { to: '/payments', label: 'Payments', icon: PaymentsIcon },
+  { to: '/reports', label: 'Reports', icon: ReportsIcon },
+]
+const MANAGE_NAV: NavItem[] = [
+  { to: '/trucks', label: 'Trucks', icon: TruckIcon },
+  { to: '/drivers', label: 'Drivers', icon: DriverIcon },
+  { to: '/customers', label: 'Customers', icon: CustomersIcon },
+  { to: '/profile', label: 'Profile', icon: ProfileIcon },
+]
 
-const MORE_LINKS = [
-  { to: '/bella', label: 'Bricks', icon: '🧱' },
-  { to: '/trucks', label: 'Trucks', icon: '🚛' },
-  { to: '/drivers', label: 'Drivers', icon: '🧑‍✈️' },
-  { to: '/customers', label: 'Customers', icon: '👥' },
-  { to: '/reports', label: 'Reports', icon: '📊' },
-  { to: '/profile', label: 'Profile', icon: '👤' },
-] as const
+/** Mobile bottom bar: three thumb-reach destinations plus More. */
+const TABS: NavItem[] = [
+  { to: '/', label: 'Home', icon: HomeIcon },
+  { to: '/trips', label: 'Trips', icon: TripsIcon },
+  { to: '/payments', label: 'Payments', icon: PaymentsIcon },
+]
+const MORE_NAV: NavItem[] = [
+  { to: '/bella', label: 'Bricks', icon: BricksIcon },
+  { to: '/reports', label: 'Reports', icon: ReportsIcon },
+  ...MANAGE_NAV,
+]
 
-const AUTH_PAGES = ['/login', '/signup']
+const SIDEBAR_KEY = 'quickmoney-sidebar'
 
-export function AppShell({ children }: { children: React.ReactNode }) {
-  const location = useLocation()
+/** No hover fill on sidebar links — only the selected chip changes color. */
+const linkCls = 'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-fg-2'
+const activeCls = 'bg-primary font-semibold text-primary-fg! ring-1 ring-line-control'
+
+export function AppShell({ session, children }: { session: SessionData | null; children: React.ReactNode }) {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [moreOpen, setMoreOpen] = React.useState(false)
-  const { data: session, isPending } = authClient.useSession()
-  const isAuthPage = AUTH_PAGES.includes(location.pathname)
-  // Fresh display name (profile edits invalidate ['me']; useSession has no refresh in this version).
-  const { data: me } = useQuery({
-    queryKey: ['me'],
-    queryFn: () => api<MeDto>('GET', '/me'),
-    enabled: !!session && !isAuthPage,
-  })
+  const [collapsed, setCollapsed] = React.useState(false)
 
-  if (isAuthPage) return <>{children}</>
+  // Restore the saved rail preference after mount (SSR always renders expanded).
+  React.useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(SIDEBAR_KEY) === 'collapsed')
+    } catch {
+      // storage unavailable: keep expanded
+    }
+  }, [])
+
+  // Signed-out visitors (login, signup, 404) get the bare page; guards handle the rest.
+  if (!session) return <>{children}</>
+
+  const toggleSidebar = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    try {
+      if (next) localStorage.setItem(SIDEBAR_KEY, 'collapsed')
+      else localStorage.removeItem(SIDEBAR_KEY)
+    } catch {
+      // preference lives for this visit only
+    }
+  }
 
   const signOut = async () => {
     await authClient.signOut()
     qc.clear()
     setMoreOpen(false)
-    navigate({ to: '/login' })
+    void navigate({ to: '/login' })
   }
 
-  const displayName = me?.name ?? session?.user.name ?? ''
-  const displayEmail = me?.email ?? session?.user.email ?? ''
+  const { name, email } = session.user
+  const initial = (name.trim()[0] ?? '?').toUpperCase()
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-gray-200 bg-white/95 px-4 py-2 backdrop-blur md:hidden dark:border-gray-800 dark:bg-gray-900/95">
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-line bg-surface/95 px-4 py-2 shadow-bar backdrop-blur md:hidden">
         <Link to="/" className="text-base font-bold tracking-tight">
-          Quick<span className="text-indigo-600 dark:text-indigo-400">Money</span>
+          Quick<span className="text-link">Money</span>
         </Link>
-        {session ? (
-          <Link
-            to="/profile"
-            aria-label="Profile"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700 active:bg-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:active:bg-indigo-900"
-          >
-            {(displayName.trim()[0] ?? '👤').toUpperCase()}
-          </Link>
-        ) : (
-          !isPending && (
-            <Link to="/login" className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-              Sign in →
-            </Link>
-          )
-        )}
+        <Link
+          to="/profile"
+          aria-label="Profile"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-fg"
+        >
+          {initial}
+        </Link>
       </header>
 
       {/* Desktop sidebar */}
-      <aside className="hidden w-52 shrink-0 flex-col border-r border-gray-200 bg-white md:flex dark:border-gray-800 dark:bg-gray-900">
-        <Link to="/" className="px-4 py-4 text-base font-bold tracking-tight">
-          Quick<span className="text-indigo-600 dark:text-indigo-400">Money</span>
-        </Link>
-        <nav className="flex-1 space-y-0.5 px-2">
-          {NAV.map((n) => (
-            <Link
-              key={n.to}
-              to={n.to}
-              activeOptions={{ exact: n.to === '/' }}
-              className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              activeProps={{
-                className: 'bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300',
-              }}
-            >
-              <span className="w-5 text-center text-xs">{n.icon}</span>
-              {n.label}
+      <aside
+        className={cx(
+          'card-flip hidden shrink-0 flex-col border-r border-line transition-[width] duration-200 md:flex',
+          collapsed ? 'w-14' : 'w-52',
+        )}
+      >
+        <div className={cx('flex items-center px-3 py-4', collapsed ? 'justify-center' : 'justify-between')}>
+          {collapsed ? null : (
+            <Link to="/" className="text-base font-bold tracking-tight">
+              Quick<span className="text-fg-muted">Money</span>
             </Link>
+          )}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label={collapsed ? 'Expand menu' : 'Collapse menu'}
+            aria-expanded={!collapsed}
+            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-fg-muted"
+          >
+            {collapsed ? <ChevronRightIcon className="h-4 w-4" /> : <ChevronLeftIcon className="h-4 w-4" />}
+          </button>
+        </div>
+        <nav className="flex-1 space-y-0.5 px-2" aria-label="Main">
+          {PRIMARY_NAV.map((n) => (
+            <NavLink key={n.to} item={n} exact={n.to === '/'} collapsed={collapsed} />
+          ))}
+          {collapsed ? (
+            <div className="mx-2.5 my-2 border-t border-line" />
+          ) : (
+            <p className="px-2.5 pt-4 pb-1 text-[11px] font-medium tracking-wide text-fg-muted uppercase">Manage</p>
+          )}
+          {MANAGE_NAV.map((n) => (
+            <NavLink key={n.to} item={n} collapsed={collapsed} />
           ))}
         </nav>
-        <div className="border-t border-gray-200 p-3 text-xs dark:border-gray-800">
-          {isPending ? (
-            <span className="text-gray-400">…</span>
-          ) : session ? (
+        <div className="border-t border-line p-3 text-xs">
+          {collapsed ? (
+            <Button variant="ghost" size="sm" className="w-full" onClick={signOut} aria-label="Sign out">
+              <LogOutIcon className="h-4 w-4" />
+            </Button>
+          ) : (
             <div className="space-y-2">
               <div className="truncate">
-                <div className="font-medium">{displayName}</div>
-                <div className="truncate text-gray-400">{displayEmail}</div>
+                <div className="truncate font-medium">{name}</div>
+                <div className="truncate text-fg-muted">{email}</div>
               </div>
               <Button variant="subtle" size="sm" className="w-full" onClick={signOut}>
                 Sign out
               </Button>
             </div>
-          ) : (
-            <Link to="/login" className="text-indigo-600 dark:text-indigo-400">
-              Sign in →
-            </Link>
           )}
         </div>
       </aside>
@@ -133,90 +171,83 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile bottom tab bar */}
       <nav
         aria-label="Primary"
-        className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur md:hidden dark:border-gray-800 dark:bg-gray-900/95"
+        className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 shadow-bar-b backdrop-blur md:hidden"
       >
-        <div className="grid grid-cols-5">
-          <TabLink to={TABS[0].to} label={TABS[0].label} icon={TABS[0].icon} exact />
-          <TabLink to={TABS[1].to} label={TABS[1].label} icon={TABS[1].icon} exact={false} />
-          <div className="flex flex-col items-center justify-center gap-0.5 py-1">
-            <Link
-              to="/trips/new"
-              aria-label="New trip"
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-2xl leading-none font-medium text-white shadow-lg active:bg-indigo-700"
-            >
-              +
-            </Link>
-            <span className="text-[10px] leading-none text-gray-500 dark:text-gray-400">New trip</span>
-          </div>
-          <TabLink to={TABS[2].to} label={TABS[2].label} icon={TABS[2].icon} exact={false} />
+        <div className="grid grid-cols-4">
+          {TABS.map((t) => (
+            <TabLink key={t.to} item={t} exact={t.to === '/'} />
+          ))}
           <button
             type="button"
             onClick={() => setMoreOpen(true)}
-            className="flex min-h-[60px] cursor-pointer touch-manipulation flex-col items-center justify-center gap-0.5 py-1 text-[11px] text-gray-500 active:bg-gray-100 dark:text-gray-400 dark:active:bg-gray-800"
             aria-label="More pages"
+            className="flex min-h-[60px] cursor-pointer touch-manipulation flex-col items-center justify-center gap-0.5 py-1 text-[11px] text-fg-2 active:bg-subtle"
           >
-            <span className="text-lg leading-none">⋯</span>
+            <MoreIcon className="h-5 w-5" />
             More
           </button>
         </div>
       </nav>
 
       {/* Mobile More sheet */}
-      <Sheet
+      <Dialog
         open={moreOpen}
         title="More"
         onClose={() => setMoreOpen(false)}
         footer={
-          session ? (
-            <Button variant="subtle" className="w-full" onClick={signOut}>
-              Sign out
-            </Button>
-          ) : (
-            <Link to="/login" onClick={() => setMoreOpen(false)} className="block">
-              <Button className="w-full">Sign in</Button>
-            </Link>
-          )
+          <Button variant="subtle" className="w-full" onClick={signOut}>
+            Sign out
+          </Button>
         }
       >
-        <nav className="space-y-1">
-          {MORE_LINKS.map((n) => (
+        <nav className="space-y-1" aria-label="More">
+          {MORE_NAV.map((n) => (
             <Link
               key={n.to}
               to={n.to}
               onClick={() => setMoreOpen(false)}
-              className="flex min-h-11 items-center gap-3 rounded-lg px-2 py-2 text-sm text-gray-700 active:bg-gray-100 dark:text-gray-300 dark:active:bg-gray-800"
-              activeProps={{
-                className: 'bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300',
-              }}
+              className="flex min-h-11 items-center gap-3 rounded-lg px-2 py-2 text-sm text-fg-2 active:bg-subtle"
+              activeProps={{ className: activeCls }}
             >
-              <span className="w-6 text-center">{n.icon}</span>
+              <n.icon className="h-5 w-5 shrink-0" />
               {n.label}
             </Link>
           ))}
         </nav>
-        {session ? (
-          <div className="mt-3 truncate border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
-            <div className="font-medium">{displayName}</div>
-            <div className="truncate text-gray-400">{displayEmail}</div>
-          </div>
-        ) : null}
-      </Sheet>
+        <div className="mt-3 truncate border-t border-line pt-3 text-xs">
+          <div className="font-medium">{name}</div>
+          <div className="truncate text-fg-muted">{email}</div>
+        </div>
+      </Dialog>
     </div>
   )
 }
 
-function TabLink({ to, label, icon, exact }: { to: string; label: string; icon: string; exact: boolean }) {
+function NavLink({ item, exact = false, collapsed }: { item: NavItem; exact?: boolean; collapsed: boolean }) {
   return (
     <Link
-      to={to}
+      to={item.to}
       activeOptions={{ exact }}
-      className="flex min-h-[60px] flex-col items-center justify-center gap-0.5 py-1 text-[11px] text-gray-500 active:bg-gray-100 dark:text-gray-400 dark:active:bg-gray-800"
-      activeProps={{
-        className: 'font-semibold text-indigo-700 dark:text-indigo-300',
-      }}
+      className={cx(linkCls, collapsed && 'justify-center px-0 py-2')}
+      activeProps={{ className: collapsed ? `${activeCls} rounded-full` : activeCls }}
+      title={collapsed ? item.label : undefined}
     >
-      <span className="text-lg leading-none">{icon}</span>
-      {label}
+      <item.icon className="h-4 w-4 shrink-0" />
+      {collapsed ? null : item.label}
+    </Link>
+  )
+}
+
+function TabLink({ item, exact }: { item: NavItem; exact: boolean }) {
+  return (
+    <Link
+      to={item.to}
+      activeOptions={{ exact }}
+      className="flex min-h-[60px] flex-col items-center justify-center gap-0.5 py-1 text-[11px] text-fg-2 active:bg-subtle"
+      activeProps={{ className: 'font-semibold text-link!' }}
+    >
+      <item.icon className="h-5 w-5" />
+      {item.label}
     </Link>
   )
 }

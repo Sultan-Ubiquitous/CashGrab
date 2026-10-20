@@ -45,6 +45,11 @@ export function qs(params: Record<string, unknown>): string {
   return s ? `?${s}` : ''
 }
 
+/** True for 401 responses — pages keep their skeletons while the auth redirect resolves. */
+export function isUnauthorized(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 401
+}
+
 /** Turns an ApiError into a short, user-facing message. */
 export function errMessage(e: unknown): string {
   if (e instanceof ApiError) {
